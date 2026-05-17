@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # THC-LMS Android Mobile App
 
 Student/Participant-only Flutter Android app for the existing THC-LMS backend.
@@ -74,3 +75,6 @@ A few resources to get you started if this is your first Flutter project:
 For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev/), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
+=======
+# thc-lms-application
+>>>>>>> 692f86152475338ac50d502364e68f18a39043c3

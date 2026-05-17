@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/widgets/app_toast.dart';
 import 'auth_provider.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -35,7 +36,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
       'phone': _phone.text.trim(),
       'password': _password.text,
     });
-    if (!mounted || !ok) return;
+    if (!mounted) return;
+    if (!ok) {
+      showErrorToast(
+        context,
+        message: context.read<AuthProvider>().error ?? 'Unable to register.',
+      );
+      return;
+    }
+    showSuccessToast(context, message: 'Registration successful.');
     context.go('/face/register');
   }
 

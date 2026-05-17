@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/widgets/app_toast.dart';
 import '../../auth/presentation/auth_provider.dart';
 import 'profile_provider.dart';
 
@@ -94,10 +95,13 @@ class _PersonalDetailsScreenState extends State<PersonalDetailsScreen> {
     final profile = profileProvider.profile;
     if (saved && profile != null) {
       context.read<AuthProvider>().updateUser(profile);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Profile updated.')));
+      showSuccessToast(context, message: 'Profile updated.');
+      return;
     }
+    showErrorToast(
+      context,
+      message: profileProvider.error ?? 'Unable to update profile.',
+    );
   }
 
   String? _required(String? value) {

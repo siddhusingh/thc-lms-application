@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/widgets/app_toast.dart';
 import 'auth_provider.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -33,7 +34,12 @@ class _LoginScreenState extends State<LoginScreen> {
       _password.text,
       rememberLogin: _remember,
     );
-    if (!mounted || !ok) return;
+    if (!mounted) return;
+    if (!ok) {
+      showErrorToast(context, message: auth.error ?? 'Unable to login.');
+      return;
+    }
+    showSuccessToast(context, message: 'Login successful.');
     if (auth.user?.faceVerificationRequired == true) {
       context.go('/face/verify');
     } else {

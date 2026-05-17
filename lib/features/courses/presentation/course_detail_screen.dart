@@ -3,15 +3,21 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/widgets/app_error_view.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/loading_shimmer.dart';
 import '../../../models/course_model.dart';
 import '../../../models/course_player_model.dart';
 import 'course_provider.dart';
 
 class CourseDetailScreen extends StatefulWidget {
-  const CourseDetailScreen({required this.courseId, super.key});
+  const CourseDetailScreen({
+    required this.courseId,
+    this.showAssessmentCompletedMessage = false,
+    super.key,
+  });
 
   final String courseId;
+  final bool showAssessmentCompletedMessage;
 
   @override
   State<CourseDetailScreen> createState() => _CourseDetailScreenState();
@@ -19,11 +25,15 @@ class CourseDetailScreen extends StatefulWidget {
 
 class _CourseDetailScreenState extends State<CourseDetailScreen> {
   bool _openedPlayer = false;
+  bool _showedAssessmentCompletedMessage = false;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _prepareCourse());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showAssessmentCompletedMessageIfNeeded();
+      _prepareCourse();
+    });
   }
 
   @override
@@ -31,8 +41,26 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.courseId != widget.courseId) {
       _openedPlayer = false;
-      WidgetsBinding.instance.addPostFrameCallback((_) => _prepareCourse());
+      _showedAssessmentCompletedMessage = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showAssessmentCompletedMessageIfNeeded();
+        _prepareCourse();
+      });
+      return;
     }
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _showAssessmentCompletedMessageIfNeeded(),
+    );
+  }
+
+  void _showAssessmentCompletedMessageIfNeeded() {
+    if (!mounted ||
+        _showedAssessmentCompletedMessage ||
+        !widget.showAssessmentCompletedMessage) {
+      return;
+    }
+    _showedAssessmentCompletedMessage = true;
+    showSuccessToast(context, message: 'Assessment Submitted..');
   }
 
   Future<void> _prepareCourse() async {
@@ -57,11 +85,14 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
     if (!check.hasIncompletePreCourseAssessment) return false;
     final assessmentId = check.preCourseAssessmentId;
     if (assessmentId != null && assessmentId.isNotEmpty) {
-      context.go('/assessments/${Uri.encodeComponent(assessmentId)}');
-    } else {
-      context.go('/assessments');
+      final returnTo = Uri.encodeComponent('/courses/${widget.courseId}');
+      context.go(
+        '/assessments/${Uri.encodeComponent(assessmentId)}'
+        '?return_to=$returnTo',
+      );
+      return true;
     }
-    return true;
+    return false;
   }
 
   void _openPlayer(LessonModel lesson) {

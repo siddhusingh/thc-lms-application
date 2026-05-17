@@ -22,6 +22,7 @@ class CourseProvider extends ChangeNotifier {
 
   Future<void> load({bool refresh = false, String? search}) async {
     if (loading || loadingMore) return;
+    if (!refresh && search == null && courses.isNotEmpty) return;
     if (search != null) _search = search;
     if (refresh) {
       _page = 1;
@@ -36,7 +37,7 @@ class CourseProvider extends ChangeNotifier {
         search: _search,
       );
       if (_page == 1) courses.clear();
-      courses.addAll(response.items);
+      _appendUniqueCourses(response.items);
       hasMore = response.hasMore;
       _page = response.currentPage + 1;
     } on ApiException catch (exception) {
@@ -58,7 +59,7 @@ class CourseProvider extends ChangeNotifier {
         page: _page,
         search: _search,
       );
-      courses.addAll(response.items);
+      _appendUniqueCourses(response.items);
       hasMore = response.hasMore;
       _page = response.currentPage + 1;
     } finally {
@@ -165,6 +166,13 @@ class CourseProvider extends ChangeNotifier {
 
   void setCurrentVideoId(String videoId) {
     currentVideoId = videoId;
+  }
+
+  void _appendUniqueCourses(Iterable<CourseModel> items) {
+    final existingIds = courses.map((course) => course.id).toSet();
+    for (final course in items) {
+      if (existingIds.add(course.id)) courses.add(course);
+    }
   }
 
   void _updateLessonProgress(

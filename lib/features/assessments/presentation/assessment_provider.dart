@@ -46,6 +46,7 @@ class AssessmentProvider extends ChangeNotifier {
     loading = true;
     error = null;
     result = null;
+    attempt = null;
     notifyListeners();
     try {
       attempt = await _repository.startAssessment(id);
@@ -62,20 +63,98 @@ class AssessmentProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> submit(Map<String, String> answers) async {
+  Future<bool> submit(String assessmentId, Map<String, String> answers) async {
     final current = attempt;
     if (current == null) return false;
     loading = true;
     error = null;
     notifyListeners();
     try {
-      result = await _repository.submitAssessment(current.attemptId, answers);
+      result = await _repository.submitAssessment(
+        assessmentId,
+        current.attemptId,
+        answers,
+      );
       return true;
     } on ApiException catch (exception) {
       error = exception.message;
       return false;
     } catch (_) {
       error = 'Unable to submit assessment.';
+      return false;
+    } finally {
+      loading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> saveAnswer({
+    required String questionId,
+    required String answer,
+  }) async {
+    final current = attempt;
+    if (current == null || current.attemptId.isEmpty) return false;
+    error = null;
+    notifyListeners();
+    try {
+      await _repository.saveAssessmentAnswer(
+        attemptId: current.attemptId,
+        questionId: questionId,
+        answer: answer,
+      );
+      return true;
+    } on ApiException catch (exception) {
+      error = exception.message;
+      return false;
+    } catch (_) {
+      error = 'Unable to save answer.';
+      return false;
+    } finally {
+      notifyListeners();
+    }
+  }
+
+  Future<bool> loadNextQuestion(String assessmentId) async {
+    final current = attempt;
+    final nextQuestionId = current?.nextQuestionId;
+    if (current == null ||
+        nextQuestionId == null ||
+        nextQuestionId.isEmpty ||
+        current.isLast) {
+      return false;
+    }
+
+    loading = true;
+    error = null;
+    notifyListeners();
+    try {
+      final nextPage = await _repository.fetchAssessmentQuestion(
+        assessmentId,
+        attemptId: current.attemptId,
+        questionId: nextQuestionId,
+      );
+      final nextQuestions = nextPage.questions
+          .where(
+            (question) => current.questions.every(
+              (loadedQuestion) => loadedQuestion.id != question.id,
+            ),
+          )
+          .toList();
+      attempt = current.copyWith(
+        questions: [...current.questions, ...nextQuestions],
+        totalQuestions: nextPage.totalQuestions > 0
+            ? nextPage.totalQuestions
+            : current.totalQuestions,
+        currentNumber: nextPage.currentNumber,
+        nextQuestionId: nextPage.nextQuestionId,
+        isLast: nextPage.isLast,
+      );
+      return nextQuestions.isNotEmpty;
+    } on ApiException catch (exception) {
+      error = exception.message;
+      return false;
+    } catch (_) {
+      error = 'Unable to load next question.';
       return false;
     } finally {
       loading = false;

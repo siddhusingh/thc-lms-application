@@ -10,6 +10,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../../controllers/face_verification_controller.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../features/auth/presentation/auth_provider.dart';
 import '../../../features/face_references/presentation/face_reference_provider.dart';
 import '../../../models/course_model.dart';
@@ -198,7 +199,10 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
     }
   }
 
-  Future<void> _saveProgress({bool force = false}) async {
+  Future<void> _saveProgress({
+    bool force = false,
+    bool showFeedback = false,
+  }) async {
     final videoController = _videoController;
     final courseId = _courseId;
     if (courseId == null ||
@@ -252,8 +256,14 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
         );
       });
       _refreshControlsIfLessonCompletionChanged();
+      if (showFeedback) {
+        showSuccessToast(context, message: 'Progress updated.');
+      }
     } catch (_) {
       // Keep the local playback position and retry on the next save boundary.
+      if (showFeedback && mounted) {
+        showErrorToast(context, message: 'Unable to update progress.');
+      }
     } finally {
       _saveInFlight = false;
       if (_pendingForcedSave) {
@@ -273,7 +283,9 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
         assessmentType: AssessmentType.pre,
       );
       if (!mounted || !check.hasIncompletePreVideoAssessment) return true;
-      _navigateToAssessment(check.preVideoAssessmentId);
+      final assessmentId = check.preVideoAssessmentId;
+      if (assessmentId == null || assessmentId.isEmpty) return true;
+      _navigateToAssessment(assessmentId);
       return false;
     } catch (_) {
       return true;
@@ -290,7 +302,9 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
         assessmentType: AssessmentType.post,
       );
       if (!mounted || !check.hasIncompletePostVideoAssessment) return false;
-      _navigateToAssessment(check.postVideoAssessmentId);
+      final assessmentId = check.postVideoAssessmentId;
+      if (assessmentId == null || assessmentId.isEmpty) return false;
+      _navigateToAssessment(assessmentId);
       return true;
     } catch (_) {
       return false;
@@ -299,9 +313,13 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
 
   void _navigateToAssessment(String? assessmentId) {
     if (assessmentId != null && assessmentId.isNotEmpty) {
-      context.go('/assessments/${Uri.encodeComponent(assessmentId)}');
-    } else {
-      context.go('/assessments');
+      final courseId = _courseId;
+      final returnSuffix = courseId == null
+          ? ''
+          : '?return_to=${Uri.encodeComponent('/courses/$courseId')}';
+      context.go(
+        '/assessments/${Uri.encodeComponent(assessmentId)}$returnSuffix',
+      );
     }
   }
 
@@ -723,7 +741,9 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
         AssessmentType.post,
       );
       if (!mounted || !check.hasIncompletePostCourseAssessment) return false;
-      _navigateToAssessment(check.postCourseAssessmentId);
+      final assessmentId = check.postCourseAssessmentId;
+      if (assessmentId == null || assessmentId.isEmpty) return false;
+      _navigateToAssessment(assessmentId);
       return true;
     } catch (_) {
       return false;
@@ -801,7 +821,9 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
                 },
                 onMarkComplete: _lesson.id.isEmpty
                     ? null
-                    : () => unawaited(_saveProgress(force: true)),
+                    : () => unawaited(
+                        _saveProgress(force: true, showFeedback: true),
+                      ),
                 onSelectLesson: (lesson) => unawaited(_selectLesson(lesson)),
               ),
             ),

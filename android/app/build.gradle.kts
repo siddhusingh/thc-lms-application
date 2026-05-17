@@ -1,9 +1,16 @@
+import com.android.build.gradle.internal.api.BaseVariantOutputImpl
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+val apkBuildTimestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
 
 android {
     namespace = "com.thc.lms.thc_lms_mobile"
@@ -33,6 +40,14 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+        }
+    }
+
+    applicationVariants.all {
+        val variantName = name
+        outputs.all {
+            val output = this as BaseVariantOutputImpl
+            output.outputFileName = "THC-Learning-$variantName-$apkBuildTimestamp.apk"
         }
     }
 }

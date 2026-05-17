@@ -41,16 +41,7 @@ class MainShell extends StatelessWidget {
               child: IconButton(
                 tooltip: 'Open navigation menu',
                 onPressed: () => Scaffold.of(context).openDrawer(),
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  shape: const CircleBorder(),
-                  side: BorderSide(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.outlineVariant.withValues(alpha: 0.55),
-                  ),
-                ),
-                icon: const Icon(Icons.menu_rounded),
+                icon: const Icon(Icons.segment_rounded),
               ),
             ),
           ),

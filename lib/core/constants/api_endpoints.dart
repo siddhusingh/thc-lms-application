@@ -25,6 +25,7 @@ class ApiEndpoints {
   static const assessments = 'student/results';
   static String assessment(String id) => 'student/assessment/question';
   static String startAssessment(String id) => 'student/assessment/start';
+  static const answerAssessment = 'student/assessment/answer';
   static String submitAssessment(String attemptId) =>
       'student/assessment/finish';
   static String assessmentAttempts(String id) => 'student/results';

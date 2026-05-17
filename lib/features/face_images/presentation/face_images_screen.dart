@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/widgets/app_error_view.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/loading_shimmer.dart';
 import '../../../features/auth/presentation/auth_provider.dart';
 import '../../../features/face_references/presentation/face_reference_provider.dart';
@@ -50,23 +51,20 @@ class _FaceImagesScreenState extends State<FaceImagesScreen> {
         if (userId != null && userId.isNotEmpty) {
           context.read<FaceReferenceProvider>().prepare(userId, force: true);
         }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${slot.label} face image updated.')),
+        showSuccessToast(
+          context,
+          message: '${slot.label} face image updated.',
         );
         return;
       }
 
       final error = provider.error;
       if (error != null) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(error)));
+        showErrorToast(context, message: error);
       }
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Unable to select image.')));
+      showErrorToast(context, message: 'Unable to select image.');
     }
   }
 

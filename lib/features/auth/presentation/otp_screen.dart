@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/widgets/app_toast.dart';
 import 'auth_provider.dart';
 
 class OtpScreen extends StatefulWidget {
@@ -55,7 +56,16 @@ class _OtpScreenState extends State<OtpScreen> {
                         widget.email,
                         _otp.text.trim(),
                       );
-                      if (context.mounted && ok) context.go('/login');
+                      if (!context.mounted) return;
+                      if (!ok) {
+                        showErrorToast(
+                          context,
+                          message: auth.error ?? 'Unable to verify OTP.',
+                        );
+                        return;
+                      }
+                      showSuccessToast(context, message: 'OTP verified.');
+                      context.go('/login');
                     },
               child: auth.loading
                   ? const CircularProgressIndicator()

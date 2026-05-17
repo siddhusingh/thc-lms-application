@@ -7,6 +7,7 @@ import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/widgets/app_toast.dart';
 import '../../auth/presentation/auth_provider.dart';
 import 'profile_provider.dart';
 
@@ -195,18 +196,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (uploaded && provider.profile != null) {
         context.read<AuthProvider>().updateUser(provider.profile!);
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
+      if (uploaded) {
+        showSuccessToast(context, message: message);
+      } else {
+        showErrorToast(context, message: message);
+      }
     } on FormatException catch (exception) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(exception.message)));
+      showErrorToast(context, message: exception.message);
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Unable to process profile image: $error')),
+      showErrorToast(
+        context,
+        message: 'Unable to process profile image: $error',
       );
     }
   }
@@ -355,7 +357,16 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
                     _current.text,
                     _next.text,
                   );
-                  if (context.mounted && ok) Navigator.pop(context);
+                  if (!context.mounted) return;
+                  if (!ok) {
+                    showErrorToast(
+                      context,
+                      message: provider.error ?? 'Unable to change password.',
+                    );
+                    return;
+                  }
+                  showSuccessToast(context, message: 'Password updated.');
+                  Navigator.pop(context);
                 },
           child: const Text('Save'),
         ),

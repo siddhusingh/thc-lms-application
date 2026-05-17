@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/widgets/app_toast.dart';
 import 'auth_provider.dart';
 
 class FaceVerificationScreen extends StatefulWidget {
@@ -37,7 +38,20 @@ class _FaceVerificationScreenState extends State<FaceVerificationScreen> {
     final ok = widget.mode == FaceMode.register
         ? await auth.registerFace(image)
         : await auth.verifyFace(image, context: 'login');
-    if (!mounted || !ok) return;
+    if (!mounted) return;
+    if (!ok) {
+      showErrorToast(
+        context,
+        message: auth.error ?? 'Unable to verify face.',
+      );
+      return;
+    }
+    showSuccessToast(
+      context,
+      message: widget.mode == FaceMode.register
+          ? 'Face registered.'
+          : 'Face verified.',
+    );
     context.go('/dashboard');
   }
 

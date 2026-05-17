@@ -121,8 +121,11 @@ class AppRouter {
         ),
         GoRoute(
           path: '/courses/:id',
-          builder: (context, state) =>
-              CourseDetailScreen(courseId: state.pathParameters['id']!),
+          builder: (context, state) => CourseDetailScreen(
+            courseId: state.pathParameters['id']!,
+            showAssessmentCompletedMessage:
+                state.uri.queryParameters['assessment_completed'] == 'true',
+          ),
         ),
         GoRoute(
           path: '/lessons',
@@ -148,6 +151,7 @@ class AppRouter {
           path: '/assessments/:id',
           builder: (context, state) => AssessmentAttemptScreen(
             assessmentId: state.pathParameters['id']!,
+            returnTo: state.uri.queryParameters['return_to'],
           ),
         ),
         GoRoute(

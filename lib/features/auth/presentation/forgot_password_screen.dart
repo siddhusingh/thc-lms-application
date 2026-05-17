@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/widgets/app_toast.dart';
 import 'auth_provider.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
@@ -50,11 +51,18 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   ? null
                   : () async {
                       final ok = await auth.forgotPassword(_email.text.trim());
-                      if (context.mounted && ok) {
-                        context.go(
-                          '/otp?email=${Uri.encodeQueryComponent(_email.text.trim())}',
+                      if (!context.mounted) return;
+                      if (!ok) {
+                        showErrorToast(
+                          context,
+                          message: auth.error ?? 'Unable to send OTP.',
                         );
+                        return;
                       }
+                      showSuccessToast(context, message: 'OTP sent.');
+                      context.go(
+                        '/otp?email=${Uri.encodeQueryComponent(_email.text.trim())}',
+                      );
                     },
               child: auth.loading
                   ? const CircularProgressIndicator()
