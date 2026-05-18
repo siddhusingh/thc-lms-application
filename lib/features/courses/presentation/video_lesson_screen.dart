@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:chewie/chewie.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
@@ -51,6 +52,10 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
   bool _pendingForcedSave = false;
   bool _completionFlowRunning = false;
   bool _usingRestrictedControls = false;
+  bool _orientationSyncQueued = false;
+  bool _inlineFullScreen = false;
+  bool _autoEnteredInlineFullScreen = false;
+  bool _restoreAllOrientationsAfterPortrait = false;
   DateTime? _lastSaveAt;
   int? _lastSavedSecond;
   String? _error;
@@ -60,6 +65,7 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _lesson = widget.lesson;
+    unawaited(SystemChrome.setPreferredOrientations(DeviceOrientation.values));
     WidgetsBinding.instance.addPostFrameCallback((_) => _initVideo());
   }
 
@@ -138,7 +144,7 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
       _chewieController = ChewieController(
         videoPlayerController: videoController,
         autoPlay: false,
-        allowFullScreen: true,
+        allowFullScreen: false,
         allowPlaybackSpeedChanging: _lesson.completed,
         draggableProgressBar: _lesson.completed,
         showOptions: _lesson.completed,
@@ -153,6 +159,7 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
       );
       if (mounted) {
         setState(() => _ready = true);
+        _syncFullscreenWithCurrentOrientation();
         if (preserveVerification && _verificationSession.canPlay) {
           resumeVideoAfterVerification();
         } else {
@@ -558,6 +565,7 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
       if (_verificationSession.canPlay) {
         unawaited(WakelockPlus.enable());
         startPeriodicFaceCheck();
+        _syncFullscreenWithCurrentOrientation();
       } else {
         pauseVideoForVerification(
           'Face verification is required to continue watching.',
@@ -720,7 +728,7 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
     _chewieController = ChewieController(
       videoPlayerController: videoController,
       autoPlay: false,
-      allowFullScreen: true,
+      allowFullScreen: false,
       allowPlaybackSpeedChanging: true,
       draggableProgressBar: true,
       showOptions: true,
@@ -758,6 +766,106 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
   }
 
   @override
+  void didChangeMetrics() {
+    _queueOrientationSync();
+  }
+
+  void _queueOrientationSync() {
+    if (_orientationSyncQueued) return;
+    _orientationSyncQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _orientationSyncQueued = false;
+      if (mounted) {
+        _syncFullscreenWithCurrentOrientation();
+      }
+    });
+  }
+
+  void _setPreferredOrientationsAfterFrame(
+    List<DeviceOrientation> orientations,
+  ) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(SystemChrome.setPreferredOrientations(orientations));
+      }
+    });
+  }
+
+  void _syncFullscreenWithCurrentOrientation() {
+    final videoController = _videoController;
+    if (!mounted ||
+        _chewieController == null ||
+        videoController == null ||
+        !videoController.value.isInitialized) {
+      return;
+    }
+
+    final orientation = _currentDeviceOrientation();
+    if (orientation == Orientation.portrait &&
+        _restoreAllOrientationsAfterPortrait) {
+      _restoreAllOrientationsAfterPortrait = false;
+      unawaited(
+        SystemChrome.setPreferredOrientations(DeviceOrientation.values),
+      );
+    }
+
+    if (orientation == Orientation.landscape &&
+        !_restoreAllOrientationsAfterPortrait &&
+        videoController.value.isPlaying &&
+        !_inlineFullScreen) {
+      _enterInlineFullScreen(autoEntered: true);
+      return;
+    }
+
+    if (orientation == Orientation.portrait &&
+        _autoEnteredInlineFullScreen &&
+        _inlineFullScreen) {
+      _exitInlineFullScreen(forcePortrait: false);
+    }
+  }
+
+  void _toggleInlineFullScreen() {
+    if (_inlineFullScreen) {
+      _exitInlineFullScreen(forcePortrait: true);
+      return;
+    }
+    _enterInlineFullScreen(autoEntered: false);
+  }
+
+  void _enterInlineFullScreen({required bool autoEntered}) {
+    if (!mounted || _inlineFullScreen) return;
+    setState(() {
+      _inlineFullScreen = true;
+      _autoEnteredInlineFullScreen = autoEntered;
+    });
+    if (!autoEntered && _currentDeviceOrientation() == Orientation.portrait) {
+      _setPreferredOrientationsAfterFrame([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    }
+  }
+
+  void _exitInlineFullScreen({required bool forcePortrait}) {
+    if (!mounted || !_inlineFullScreen) return;
+    setState(() {
+      _inlineFullScreen = false;
+      _autoEnteredInlineFullScreen = false;
+    });
+    if (forcePortrait || _currentDeviceOrientation() == Orientation.landscape) {
+      _restoreAllOrientationsAfterPortrait = true;
+      _setPreferredOrientationsAfterFrame([DeviceOrientation.portraitUp]);
+    }
+  }
+
+  Orientation _currentDeviceOrientation() {
+    final physicalSize = View.of(context).physicalSize;
+    return physicalSize.width > physicalSize.height
+        ? Orientation.landscape
+        : Orientation.portrait;
+  }
+
+  @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused ||
@@ -776,6 +884,9 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
     _chewieController?.dispose();
     _videoController?.dispose();
     _faceVerificationController?.dispose();
+    unawaited(
+      SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]),
+    );
     super.dispose();
   }
 
@@ -787,48 +898,75 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
     final currentIndex = lessons.indexWhere(_isCurrentLesson);
     final displayIndex = currentIndex >= 0 ? currentIndex + 1 : 1;
     final total = lessons.length;
+    final isLandscape =
+        MediaQuery.orientationOf(context) == Orientation.landscape;
+
+    final videoStage = _VideoStage(
+      ready: _ready,
+      error: _error,
+      chewieController: _chewieController,
+      isFullScreen: _inlineFullScreen,
+      onToggleFullScreen: _toggleInlineFullScreen,
+      onBack: () {
+        if (_inlineFullScreen) {
+          _exitInlineFullScreen(forcePortrait: true);
+          return;
+        }
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/courses');
+        }
+      },
+    );
+    final playlistPanel = _PlaylistPanel(
+      courseTitle: course?.title ?? _lesson.title,
+      lesson: _lesson,
+      lessons: lessons,
+      currentNumber: displayIndex,
+      total: total,
+      onClose: () {
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/courses');
+        }
+      },
+      onMarkComplete: _lesson.id.isEmpty
+          ? null
+          : () => unawaited(_saveProgress(force: true, showFeedback: true)),
+      onSelectLesson: (lesson) => unawaited(_selectLesson(lesson)),
+    );
+
+    if (_inlineFullScreen) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: SizedBox.expand(
+            child: Center(
+              child: AspectRatio(aspectRatio: 16 / 9, child: videoStage),
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
-        child: Column(
-          children: [
-            _VideoStage(
-              ready: _ready,
-              error: _error,
-              chewieController: _chewieController,
-              onBack: () {
-                if (context.canPop()) {
-                  context.pop();
-                } else {
-                  context.go('/courses');
-                }
-              },
-            ),
-            Expanded(
-              child: _PlaylistPanel(
-                courseTitle: course?.title ?? _lesson.title,
-                lesson: _lesson,
-                lessons: lessons,
-                currentNumber: displayIndex,
-                total: total,
-                onClose: () {
-                  if (context.canPop()) {
-                    context.pop();
-                  } else {
-                    context.go('/courses');
-                  }
-                },
-                onMarkComplete: _lesson.id.isEmpty
-                    ? null
-                    : () => unawaited(
-                        _saveProgress(force: true, showFeedback: true),
-                      ),
-                onSelectLesson: (lesson) => unawaited(_selectLesson(lesson)),
+        child: isLandscape
+            ? Row(
+                children: [
+                  Expanded(flex: 5, child: Center(child: videoStage)),
+                  Expanded(flex: 4, child: playlistPanel),
+                ],
+              )
+            : Column(
+                children: [
+                  videoStage,
+                  Expanded(child: playlistPanel),
+                ],
               ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -878,56 +1016,166 @@ class FaceSetupRequiredDialog extends StatelessWidget {
   }
 }
 
-class _VideoStage extends StatelessWidget {
+class _VideoStage extends StatefulWidget {
   const _VideoStage({
     required this.ready,
     required this.error,
     required this.chewieController,
+    required this.isFullScreen,
+    required this.onToggleFullScreen,
     required this.onBack,
   });
 
   final bool ready;
   final String? error;
   final ChewieController? chewieController;
+  final bool isFullScreen;
+  final VoidCallback onToggleFullScreen;
   final VoidCallback onBack;
 
   @override
+  State<_VideoStage> createState() => _VideoStageState();
+}
+
+class _VideoStageState extends State<_VideoStage> {
+  VideoPlayerController? _videoController;
+  Timer? _hideBackButtonTimer;
+  bool _showBackButton = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _attachVideoController();
+  }
+
+  @override
+  void didUpdateWidget(covariant _VideoStage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.chewieController != widget.chewieController) {
+      _attachVideoController();
+    }
+    if (!widget.ready || widget.error != null) {
+      _showBackButtonUntilPlaybackResumes();
+    }
+  }
+
+  @override
+  void dispose() {
+    _hideBackButtonTimer?.cancel();
+    _videoController?.removeListener(_handleVideoChanged);
+    super.dispose();
+  }
+
+  void _attachVideoController() {
+    _videoController?.removeListener(_handleVideoChanged);
+    _videoController = widget.chewieController?.videoPlayerController;
+    _videoController?.addListener(_handleVideoChanged);
+    _handleVideoChanged();
+  }
+
+  void _handleVideoChanged() {
+    if (!mounted) return;
+    final videoController = _videoController;
+    if (!widget.ready ||
+        widget.error != null ||
+        videoController == null ||
+        !videoController.value.isInitialized ||
+        !videoController.value.isPlaying) {
+      _showBackButtonUntilPlaybackResumes();
+      return;
+    }
+
+    if (_showBackButton && _hideBackButtonTimer == null) {
+      _showBackButtonTemporarily();
+    }
+  }
+
+  void _showBackButtonUntilPlaybackResumes() {
+    _hideBackButtonTimer?.cancel();
+    _hideBackButtonTimer = null;
+    if (_showBackButton) return;
+    setState(() => _showBackButton = true);
+  }
+
+  void _showBackButtonTemporarily() {
+    _hideBackButtonTimer?.cancel();
+    if (!_showBackButton && mounted) {
+      setState(() => _showBackButton = true);
+    }
+    if (_videoController?.value.isPlaying != true) return;
+    _hideBackButtonTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted && _videoController?.value.isPlaying == true) {
+        _hideBackButtonTimer = null;
+        setState(() => _showBackButton = false);
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: 16 / 9,
-      child: Stack(
-        children: [
-          Positioned.fill(
+    final stage = Stack(
+      children: [
+        Positioned.fill(
+          child: Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: (_) => _showBackButtonTemporarily(),
             child: ColoredBox(
               color: Colors.black,
-              child: error != null
+              child: widget.error != null
                   ? Center(
                       child: Padding(
                         padding: const EdgeInsets.all(24),
                         child: Text(
-                          error!,
+                          widget.error!,
                           textAlign: TextAlign.center,
                           style: const TextStyle(color: Colors.white),
                         ),
                       ),
                     )
-                  : !ready
+                  : !widget.ready
                   ? const Center(child: CircularProgressIndicator())
-                  : Chewie(controller: chewieController!),
+                  : Chewie(controller: widget.chewieController!),
             ),
           ),
-          Positioned(
-            left: 10,
-            top: 10,
-            child: IconButton.filledTonal(
-              tooltip: 'Back',
-              onPressed: onBack,
-              icon: const Icon(Icons.arrow_back_rounded),
+        ),
+        Positioned(
+          left: 10,
+          top: 10,
+          child: AnimatedOpacity(
+            opacity: _showBackButton ? 1 : 0,
+            duration: const Duration(milliseconds: 180),
+            child: IgnorePointer(
+              ignoring: !_showBackButton,
+              child: IconButton(
+                tooltip: 'Back',
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.black.withValues(alpha: 0.32),
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: widget.onBack,
+                icon: const Icon(Icons.arrow_back_rounded),
+              ),
             ),
           ),
-        ],
-      ),
+        ),
+        Positioned(
+          right: 10,
+          bottom: 10,
+          child: IconButton(
+            tooltip: widget.isFullScreen ? 'Exit full screen' : 'Full screen',
+            onPressed: widget.onToggleFullScreen,
+            icon: Icon(
+              widget.isFullScreen
+                  ? Icons.fullscreen_exit_rounded
+                  : Icons.fullscreen_rounded,
+              color: Colors.white,
+            ),
+          ),
+        ),
+      ],
     );
+
+    return AspectRatio(aspectRatio: 16 / 9, child: stage);
   }
 }
 
@@ -1228,9 +1476,8 @@ class _RestrictedVideoControlsState extends State<_RestrictedVideoControls> {
 
   @override
   Widget build(BuildContext context) {
-    final chewieController = _chewieController;
     final videoController = _videoController;
-    if (chewieController == null || videoController == null) {
+    if (_chewieController == null || videoController == null) {
       return const SizedBox.expand();
     }
 
@@ -1286,22 +1533,6 @@ class _RestrictedVideoControlsState extends State<_RestrictedVideoControls> {
             value: progress.clamp(0.0, 1.0),
             backgroundColor: Colors.white.withValues(alpha: 0.28),
             valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-          ),
-        ),
-        Positioned(
-          right: 10,
-          bottom: 10,
-          child: IconButton(
-            tooltip: chewieController.isFullScreen
-                ? 'Exit full screen'
-                : 'Full screen',
-            onPressed: chewieController.toggleFullScreen,
-            icon: Icon(
-              chewieController.isFullScreen
-                  ? Icons.fullscreen_exit_rounded
-                  : Icons.fullscreen_rounded,
-              color: Colors.white,
-            ),
           ),
         ),
       ],
