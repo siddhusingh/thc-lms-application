@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:chewie/chewie.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -10,6 +11,7 @@ import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../../controllers/face_verification_controller.dart';
+import '../../../core/constants/app_config.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../features/auth/presentation/auth_provider.dart';
@@ -56,9 +58,18 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
   bool _inlineFullScreen = false;
   bool _autoEnteredInlineFullScreen = false;
   bool _restoreAllOrientationsAfterPortrait = false;
+  bool _pendingForcedPortraitExit = false;
+  final ValueNotifier<bool> _inlineFullScreenNotifier = ValueNotifier(false);
+  final ValueNotifier<bool> _fullscreenOverlayVisibility = ValueNotifier(true);
   DateTime? _lastSaveAt;
   int? _lastSavedSecond;
   String? _error;
+
+  bool get _lessonFaceVerificationDisabled =>
+      AppConfig.disableLessonFaceVerification;
+
+  bool get _canPlayLesson =>
+      _lessonFaceVerificationDisabled || _verificationSession.canPlay;
 
   @override
   void initState() {
@@ -141,17 +152,7 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
       if (resumeSeconds > 0) {
         await videoController.seekTo(Duration(seconds: resumeSeconds));
       }
-      _chewieController = ChewieController(
-        videoPlayerController: videoController,
-        autoPlay: false,
-        allowFullScreen: false,
-        allowPlaybackSpeedChanging: _lesson.completed,
-        draggableProgressBar: _lesson.completed,
-        showOptions: _lesson.completed,
-        customControls: _lesson.completed
-            ? null
-            : const _RestrictedVideoControls(),
-      );
+      _chewieController = _buildChewieController(videoController);
       _usingRestrictedControls = !_lesson.completed;
       _syncTimer = Timer.periodic(
         const Duration(seconds: 15),
@@ -331,6 +332,11 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
   }
 
   Future<void> verifyBeforePlay() async {
+    if (_lessonFaceVerificationDisabled) {
+      resumeVideoAfterVerification();
+      return;
+    }
+
     final result = await _showFaceVerificationDialog(
       title: 'Verify to start video',
       message: 'Please verify your face before watching this lesson.',
@@ -347,6 +353,8 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
   }
 
   void startPeriodicFaceCheck() {
+    if (_lessonFaceVerificationDisabled) return;
+
     _faceCheckTimer?.cancel();
     _faceCheckTimer = Timer.periodic(const Duration(seconds: 10), (_) {
       final videoController = _videoController;
@@ -367,6 +375,8 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
   }
 
   Future<void> _runSilentFaceCheck() async {
+    if (_lessonFaceVerificationDisabled) return;
+
     final controller = _faceVerificationController;
     final videoController = _videoController;
     if (controller == null ||
@@ -386,6 +396,11 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
   }
 
   void pauseVideoForVerification(String message) {
+    if (_lessonFaceVerificationDisabled) {
+      _verificationSession.markVerified();
+      return;
+    }
+
     _verificationSession.requireReverification();
     stopPeriodicFaceCheck();
     _videoController?.pause();
@@ -472,6 +487,8 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
   }
 
   Future<bool> _ensureFaceSetupComplete() async {
+    if (_lessonFaceVerificationDisabled) return true;
+
     final userId = context.read<AuthProvider>().user?.id;
     if (userId == null || userId.isEmpty) {
       return false;
@@ -562,7 +579,7 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
 
     _lastKnownPlaying = videoController.value.isPlaying;
     if (_lastKnownPlaying) {
-      if (_verificationSession.canPlay) {
+      if (_canPlayLesson) {
         unawaited(WakelockPlus.enable());
         startPeriodicFaceCheck();
         _syncFullscreenWithCurrentOrientation();
@@ -676,7 +693,7 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
   }
 
   bool _canContinueWithoutReverification(LessonModel nextLesson) {
-    if (!_verificationSession.canPlay || !_lesson.completed) return false;
+    if (!_canPlayLesson || !_lesson.completed) return false;
     final lessons = _playlist(context.read<CourseProvider>().selectedCourse);
     final currentIndex = lessons.indexWhere(_isCurrentLesson);
     final nextIndex = lessons.indexWhere(
@@ -725,14 +742,7 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
     }
 
     final previousController = _chewieController;
-    _chewieController = ChewieController(
-      videoPlayerController: videoController,
-      autoPlay: false,
-      allowFullScreen: false,
-      allowPlaybackSpeedChanging: true,
-      draggableProgressBar: true,
-      showOptions: true,
-    );
+    _chewieController = _buildChewieController(videoController);
     _usingRestrictedControls = false;
     previousController?.dispose();
     if (mounted) {
@@ -791,6 +801,21 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
     });
   }
 
+  void _setImmersiveSystemUi() {
+    unawaited(
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky),
+    );
+  }
+
+  void _restoreSystemUi() {
+    unawaited(
+      SystemChrome.setEnabledSystemUIMode(
+        SystemUiMode.edgeToEdge,
+        overlays: SystemUiOverlay.values,
+      ),
+    );
+  }
+
   void _syncFullscreenWithCurrentOrientation() {
     final videoController = _videoController;
     if (!mounted ||
@@ -801,6 +826,10 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
     }
 
     final orientation = _currentDeviceOrientation();
+    if (orientation == Orientation.portrait && _pendingForcedPortraitExit) {
+      _completeInlineFullScreenExit();
+    }
+
     if (orientation == Orientation.portrait &&
         _restoreAllOrientationsAfterPortrait) {
       _restoreAllOrientationsAfterPortrait = false;
@@ -838,6 +867,9 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
       _inlineFullScreen = true;
       _autoEnteredInlineFullScreen = autoEntered;
     });
+    _setImmersiveSystemUi();
+    _inlineFullScreenNotifier.value = true;
+    _fullscreenOverlayVisibility.value = true;
     if (!autoEntered && _currentDeviceOrientation() == Orientation.portrait) {
       _setPreferredOrientationsAfterFrame([
         DeviceOrientation.landscapeLeft,
@@ -848,14 +880,32 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
 
   void _exitInlineFullScreen({required bool forcePortrait}) {
     if (!mounted || !_inlineFullScreen) return;
-    setState(() {
-      _inlineFullScreen = false;
-      _autoEnteredInlineFullScreen = false;
-    });
-    if (forcePortrait || _currentDeviceOrientation() == Orientation.landscape) {
+    final orientation = _currentDeviceOrientation();
+    if (forcePortrait && orientation == Orientation.landscape) {
+      _pendingForcedPortraitExit = true;
+      _restoreAllOrientationsAfterPortrait = true;
+      _fullscreenOverlayVisibility.value = true;
+      _setPreferredOrientationsAfterFrame([DeviceOrientation.portraitUp]);
+      return;
+    }
+
+    _completeInlineFullScreenExit();
+    if (orientation == Orientation.landscape) {
       _restoreAllOrientationsAfterPortrait = true;
       _setPreferredOrientationsAfterFrame([DeviceOrientation.portraitUp]);
     }
+  }
+
+  void _completeInlineFullScreenExit() {
+    if (!mounted || !_inlineFullScreen) return;
+    setState(() {
+      _inlineFullScreen = false;
+      _autoEnteredInlineFullScreen = false;
+      _pendingForcedPortraitExit = false;
+    });
+    _restoreSystemUi();
+    _inlineFullScreenNotifier.value = false;
+    _fullscreenOverlayVisibility.value = true;
   }
 
   Orientation _currentDeviceOrientation() {
@@ -863,6 +913,31 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
     return physicalSize.width > physicalSize.height
         ? Orientation.landscape
         : Orientation.portrait;
+  }
+
+  ChewieController _buildChewieController(
+    VideoPlayerController videoController,
+  ) {
+    return ChewieController(
+      videoPlayerController: videoController,
+      autoPlay: false,
+      allowFullScreen: false,
+      allowPlaybackSpeedChanging: _lesson.completed,
+      draggableProgressBar: _lesson.completed,
+      showOptions: _lesson.completed,
+      customControls: _lesson.completed
+          ? null
+          : _RestrictedVideoControls(
+              isFullScreenListenable: _inlineFullScreenNotifier,
+              fullscreenOverlayVisibility: _fullscreenOverlayVisibility,
+            ),
+      materialProgressColors: ChewieProgressColors(
+        playedColor: AppTheme.primary,
+        handleColor: AppTheme.primary,
+        bufferedColor: Colors.white.withValues(alpha: 0.38),
+        backgroundColor: Colors.white.withValues(alpha: 0.22),
+      ),
+    );
   }
 
   @override
@@ -884,6 +959,9 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
     _chewieController?.dispose();
     _videoController?.dispose();
     _faceVerificationController?.dispose();
+    _inlineFullScreenNotifier.dispose();
+    _fullscreenOverlayVisibility.dispose();
+    _restoreSystemUi();
     unawaited(
       SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]),
     );
@@ -901,26 +979,20 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
     final isLandscape =
         MediaQuery.orientationOf(context) == Orientation.landscape;
 
+    final courseTitle = course?.title ?? _lesson.title;
     final videoStage = _VideoStage(
       ready: _ready,
       error: _error,
       chewieController: _chewieController,
       isFullScreen: _inlineFullScreen,
+      lessonTitle: _lesson.title,
+      courseTitle: courseTitle,
+      fullscreenOverlayVisibility: _fullscreenOverlayVisibility,
       onToggleFullScreen: _toggleInlineFullScreen,
-      onBack: () {
-        if (_inlineFullScreen) {
-          _exitInlineFullScreen(forcePortrait: true);
-          return;
-        }
-        if (context.canPop()) {
-          context.pop();
-        } else {
-          context.go('/courses');
-        }
-      },
+      onBack: _handleBackNavigation,
     );
     final playlistPanel = _PlaylistPanel(
-      courseTitle: course?.title ?? _lesson.title,
+      courseTitle: courseTitle,
       lesson: _lesson,
       lessons: lessons,
       currentNumber: displayIndex,
@@ -938,37 +1010,45 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
       onSelectLesson: (lesson) => unawaited(_selectLesson(lesson)),
     );
 
-    if (_inlineFullScreen) {
-      return Scaffold(
-        backgroundColor: Colors.black,
-        body: SafeArea(
-          child: SizedBox.expand(
-            child: Center(
-              child: AspectRatio(aspectRatio: 16 / 9, child: videoStage),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        _handleBackNavigation();
+      },
+      child: _inlineFullScreen
+          ? Scaffold(
+              backgroundColor: Colors.black,
+              body: SizedBox.expand(child: videoStage),
+            )
+          : Scaffold(
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+              body: SafeArea(
+                child: isLandscape
+                    ? Row(
+                        children: [
+                          Expanded(flex: 5, child: Center(child: videoStage)),
+                          Expanded(flex: 4, child: playlistPanel),
+                        ],
+                      )
+                    : Column(
+                        children: [
+                          videoStage,
+                          Expanded(child: playlistPanel),
+                        ],
+                      ),
+              ),
             ),
-          ),
-        ),
-      );
+    );
+  }
+
+  void _handleBackNavigation() {
+    if (_inlineFullScreen) {
+      _exitInlineFullScreen(forcePortrait: true);
+      return;
     }
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SafeArea(
-        child: isLandscape
-            ? Row(
-                children: [
-                  Expanded(flex: 5, child: Center(child: videoStage)),
-                  Expanded(flex: 4, child: playlistPanel),
-                ],
-              )
-            : Column(
-                children: [
-                  videoStage,
-                  Expanded(child: playlistPanel),
-                ],
-              ),
-      ),
-    );
+    context.go('/courses');
   }
 }
 
@@ -1022,6 +1102,9 @@ class _VideoStage extends StatefulWidget {
     required this.error,
     required this.chewieController,
     required this.isFullScreen,
+    required this.lessonTitle,
+    required this.courseTitle,
+    required this.fullscreenOverlayVisibility,
     required this.onToggleFullScreen,
     required this.onBack,
   });
@@ -1030,6 +1113,9 @@ class _VideoStage extends StatefulWidget {
   final String? error;
   final ChewieController? chewieController;
   final bool isFullScreen;
+  final String lessonTitle;
+  final String courseTitle;
+  final ValueNotifier<bool> fullscreenOverlayVisibility;
   final VoidCallback onToggleFullScreen;
   final VoidCallback onBack;
 
@@ -1039,8 +1125,8 @@ class _VideoStage extends StatefulWidget {
 
 class _VideoStageState extends State<_VideoStage> {
   VideoPlayerController? _videoController;
-  Timer? _hideBackButtonTimer;
-  bool _showBackButton = true;
+  Timer? _hideOverlayTimer;
+  bool _showOverlay = true;
 
   @override
   void initState() {
@@ -1054,14 +1140,17 @@ class _VideoStageState extends State<_VideoStage> {
     if (oldWidget.chewieController != widget.chewieController) {
       _attachVideoController();
     }
+    if (oldWidget.isFullScreen != widget.isFullScreen) {
+      _showOverlayTemporarily();
+    }
     if (!widget.ready || widget.error != null) {
-      _showBackButtonUntilPlaybackResumes();
+      _showOverlayUntilPlaybackResumes();
     }
   }
 
   @override
   void dispose() {
-    _hideBackButtonTimer?.cancel();
+    _hideOverlayTimer?.cancel();
     _videoController?.removeListener(_handleVideoChanged);
     super.dispose();
   }
@@ -1081,34 +1170,40 @@ class _VideoStageState extends State<_VideoStage> {
         videoController == null ||
         !videoController.value.isInitialized ||
         !videoController.value.isPlaying) {
-      _showBackButtonUntilPlaybackResumes();
+      _showOverlayUntilPlaybackResumes();
       return;
     }
 
-    if (_showBackButton && _hideBackButtonTimer == null) {
-      _showBackButtonTemporarily();
+    if (_showOverlay && _hideOverlayTimer == null) {
+      _showOverlayTemporarily();
     }
   }
 
-  void _showBackButtonUntilPlaybackResumes() {
-    _hideBackButtonTimer?.cancel();
-    _hideBackButtonTimer = null;
-    if (_showBackButton) return;
-    setState(() => _showBackButton = true);
+  void _showOverlayUntilPlaybackResumes() {
+    _hideOverlayTimer?.cancel();
+    _hideOverlayTimer = null;
+    _setOverlayVisibility(true);
   }
 
-  void _showBackButtonTemporarily() {
-    _hideBackButtonTimer?.cancel();
-    if (!_showBackButton && mounted) {
-      setState(() => _showBackButton = true);
-    }
+  void _showOverlayTemporarily() {
+    _hideOverlayTimer?.cancel();
+    _setOverlayVisibility(true);
     if (_videoController?.value.isPlaying != true) return;
-    _hideBackButtonTimer = Timer(const Duration(seconds: 3), () {
+    _hideOverlayTimer = Timer(const Duration(seconds: 3), () {
       if (mounted && _videoController?.value.isPlaying == true) {
-        _hideBackButtonTimer = null;
-        setState(() => _showBackButton = false);
+        _hideOverlayTimer = null;
+        _setOverlayVisibility(false);
       }
     });
+  }
+
+  void _setOverlayVisibility(bool visible) {
+    if (_showOverlay != visible && mounted) {
+      setState(() => _showOverlay = visible);
+    }
+    if (widget.fullscreenOverlayVisibility.value != visible) {
+      widget.fullscreenOverlayVisibility.value = visible;
+    }
   }
 
   @override
@@ -1118,7 +1213,7 @@ class _VideoStageState extends State<_VideoStage> {
         Positioned.fill(
           child: Listener(
             behavior: HitTestBehavior.translucent,
-            onPointerDown: (_) => _showBackButtonTemporarily(),
+            onPointerDown: (_) => _showOverlayTemporarily(),
             child: ColoredBox(
               color: Colors.black,
               child: widget.error != null
@@ -1138,44 +1233,126 @@ class _VideoStageState extends State<_VideoStage> {
             ),
           ),
         ),
-        Positioned(
-          left: 10,
-          top: 10,
-          child: AnimatedOpacity(
-            opacity: _showBackButton ? 1 : 0,
-            duration: const Duration(milliseconds: 180),
-            child: IgnorePointer(
-              ignoring: !_showBackButton,
-              child: IconButton(
-                tooltip: 'Back',
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.black.withValues(alpha: 0.32),
-                  foregroundColor: Colors.white,
+        if (widget.isFullScreen)
+          Positioned(
+            left: 10,
+            top: 10,
+            right: 10,
+            child: AnimatedOpacity(
+              opacity: _showOverlay ? 1 : 0,
+              duration: const Duration(milliseconds: 180),
+              child: IgnorePointer(
+                ignoring: !_showOverlay,
+                child: SafeArea(
+                  bottom: false,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _BackButton(onPressed: widget.onBack),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                widget.lessonTitle.isEmpty
+                                    ? 'Untitled lesson'
+                                    : widget.lessonTitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                widget.courseTitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.82,
+                                      ),
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                onPressed: widget.onBack,
-                icon: const Icon(Icons.arrow_back_rounded),
               ),
             ),
           ),
-        ),
+        if (!widget.isFullScreen)
+          Positioned(
+            left: 10,
+            top: 10,
+            child: AnimatedOpacity(
+              opacity: _showOverlay ? 1 : 0,
+              duration: const Duration(milliseconds: 180),
+              child: IgnorePointer(
+                ignoring: !_showOverlay,
+                child: _BackButton(onPressed: widget.onBack),
+              ),
+            ),
+          ),
         Positioned(
           right: 10,
           bottom: 10,
-          child: IconButton(
-            tooltip: widget.isFullScreen ? 'Exit full screen' : 'Full screen',
-            onPressed: widget.onToggleFullScreen,
-            icon: Icon(
-              widget.isFullScreen
-                  ? Icons.fullscreen_exit_rounded
-                  : Icons.fullscreen_rounded,
-              color: Colors.white,
+          child: AnimatedOpacity(
+            opacity: !widget.isFullScreen || _showOverlay ? 1 : 0,
+            duration: const Duration(milliseconds: 180),
+            child: IgnorePointer(
+              ignoring: widget.isFullScreen && !_showOverlay,
+              child: IconButton(
+                tooltip: widget.isFullScreen
+                    ? 'Exit full screen'
+                    : 'Full screen',
+                onPressed: widget.onToggleFullScreen,
+                icon: Icon(
+                  widget.isFullScreen
+                      ? Icons.fullscreen_exit_rounded
+                      : Icons.fullscreen_rounded,
+                  color: Colors.white,
+                ),
+              ),
             ),
           ),
         ),
       ],
     );
 
+    if (widget.isFullScreen) {
+      return stage;
+    }
+
     return AspectRatio(aspectRatio: 16 / 9, child: stage);
+  }
+}
+
+class _BackButton extends StatelessWidget {
+  const _BackButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: 'Back',
+      style: IconButton.styleFrom(
+        backgroundColor: Colors.black.withValues(alpha: 0.32),
+        foregroundColor: Colors.white,
+      ),
+      onPressed: onPressed,
+      icon: const Icon(Icons.arrow_back_rounded),
+    );
   }
 }
 
@@ -1391,7 +1568,13 @@ class _PlaylistLessonTile extends StatelessWidget {
 }
 
 class _RestrictedVideoControls extends StatefulWidget {
-  const _RestrictedVideoControls();
+  const _RestrictedVideoControls({
+    required this.isFullScreenListenable,
+    required this.fullscreenOverlayVisibility,
+  });
+
+  final ValueListenable<bool> isFullScreenListenable;
+  final ValueListenable<bool> fullscreenOverlayVisibility;
 
   @override
   State<_RestrictedVideoControls> createState() =>
@@ -1487,55 +1670,75 @@ class _RestrictedVideoControlsState extends State<_RestrictedVideoControls> {
         ? value.position.inMilliseconds / duration.inMilliseconds
         : 0.0;
 
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: _showControlsTemporarily,
-            child: Center(
-              child: AnimatedOpacity(
-                opacity: _showPlayPause ? 1 : 0,
-                duration: const Duration(milliseconds: 180),
-                child: IgnorePointer(
-                  ignoring: !_showPlayPause,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton.filledTonal(
-                        tooltip: 'Rewind 10 seconds',
-                        onPressed: _rewindTenSeconds,
-                        icon: const Icon(Icons.replay_10_rounded),
-                      ),
-                      const SizedBox(width: 16),
-                      IconButton.filled(
-                        tooltip: value.isPlaying ? 'Pause' : 'Play',
-                        onPressed: _togglePlayback,
-                        icon: Icon(
-                          value.isPlaying
-                              ? Icons.pause_rounded
-                              : Icons.play_arrow_rounded,
+    return ValueListenableBuilder<bool>(
+      valueListenable: widget.isFullScreenListenable,
+      builder: (context, isFullScreen, _) {
+        return ValueListenableBuilder<bool>(
+          valueListenable: widget.fullscreenOverlayVisibility,
+          builder: (context, fullscreenOverlayVisible, _) {
+            final controlsVisible = isFullScreen
+                ? fullscreenOverlayVisible
+                : _showPlayPause;
+
+            return Stack(
+              children: [
+                Positioned.fill(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _showControlsTemporarily,
+                    child: Center(
+                      child: AnimatedOpacity(
+                        opacity: controlsVisible ? 1 : 0,
+                        duration: const Duration(milliseconds: 180),
+                        child: IgnorePointer(
+                          ignoring: !controlsVisible,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton.filledTonal(
+                                tooltip: 'Rewind 10 seconds',
+                                onPressed: _rewindTenSeconds,
+                                icon: const Icon(Icons.replay_10_rounded),
+                              ),
+                              const SizedBox(width: 16),
+                              IconButton.filled(
+                                tooltip: value.isPlaying ? 'Pause' : 'Play',
+                                onPressed: _togglePlayback,
+                                icon: Icon(
+                                  value.isPlaying
+                                      ? Icons.pause_rounded
+                                      : Icons.play_arrow_rounded,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ),
-          ),
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: LinearProgressIndicator(
-            minHeight: 4,
-            value: progress.clamp(0.0, 1.0),
-            backgroundColor: Colors.white.withValues(alpha: 0.28),
-            valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-          ),
-        ),
-      ],
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: AnimatedOpacity(
+                    opacity: !isFullScreen || fullscreenOverlayVisible ? 1 : 0,
+                    duration: const Duration(milliseconds: 180),
+                    child: LinearProgressIndicator(
+                      minHeight: 4,
+                      value: progress.clamp(0.0, 1.0),
+                      backgroundColor: Colors.white.withValues(alpha: 0.28),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }
