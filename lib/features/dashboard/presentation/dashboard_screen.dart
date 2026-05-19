@@ -134,7 +134,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       alignment: Alignment.centerRight,
                       child: FilledButton.tonalIcon(
                         onPressed: () => context.go(
-                          '/courses/${dashboard.continueLearning!.id}',
+                          '/courses/${dashboard.continueLearning!.id}'
+                          '?return_to=${Uri.encodeComponent('/dashboard')}',
                         ),
                         icon: const Icon(Icons.play_arrow_rounded),
                         label: const Text('Resume'),
@@ -328,9 +329,7 @@ class _CourseCompletionPanel extends StatelessWidget {
                       final values = List<double>.generate(
                         7,
                         (index) => index < entry.value.values.length
-                            ? entry.value.values[index]
-                                  .clamp(0, 100)
-                                  .toDouble()
+                            ? entry.value.values[index].clamp(0, 100).toDouble()
                             : 0,
                         growable: false,
                       );
@@ -802,6 +801,7 @@ class _CourseProgressRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final progress = item.progressPercentage.clamp(0, 100).toDouble();
+    final navigationCourseId = item.navigationCourseId;
     final thumbnailUrl = item.courseThumbnail;
     final canShowThumbnail =
         thumbnailUrl != null &&
@@ -866,9 +866,12 @@ class _CourseProgressRow extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             TextButton(
-              onPressed: item.courseId.isEmpty
+              onPressed: navigationCourseId.isEmpty
                   ? null
-                  : () => context.go('/courses/${item.courseId}'),
+                  : () => context.go(
+                      '/courses/${Uri.encodeComponent(navigationCourseId)}'
+                      '?return_to=${Uri.encodeComponent('/dashboard')}',
+                    ),
               child: const Text('Continue'),
             ),
           ],

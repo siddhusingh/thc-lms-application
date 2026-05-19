@@ -90,7 +90,9 @@ class _CourseListScreenState extends State<CourseListScreen> {
           final course = provider.courses[itemIndex];
           return CourseCard(
             course: course,
-            onTap: () => context.go('/courses/${course.id}'),
+            onTap: () => context.go(
+              '/courses/${course.id}?return_to=${Uri.encodeComponent('/courses')}',
+            ),
           );
         },
       ),

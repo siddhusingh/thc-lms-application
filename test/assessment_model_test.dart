@@ -35,4 +35,31 @@ void main() {
 
     expect(attempt.attemptId, 'attempt-42');
   });
+
+  test('result history parses assessment result payload values', () {
+    final result = AssessmentResultHistoryModel.fromJson({
+      'assessment_id': '4',
+      'course_title': 'Where can I get some?',
+      'video_title': 'Contrary to popular belief',
+      'title': 'Pre Video Assess',
+      'assessment_type': 'pre',
+      'last_completed_at': '2026-05-17 23:23:32',
+      'time_taken': '0 mins',
+      'total_marks': '20',
+      'obtained_marks': '4',
+      'percentage': '20.00',
+    });
+
+    expect(result.assessmentId, '4');
+    expect(result.displayCourseTitle, 'Where can I get some?');
+    expect(result.videoTitle, 'Contrary to popular belief');
+    expect(result.displayTitle, 'Pre Video Assess');
+    expect(result.displayAssessmentType, 'Pre');
+    expect(result.lastCompletedAt, DateTime(2026, 5, 17, 23, 23, 32));
+    expect(result.timeTaken, '0 mins');
+    expect(result.totalMarks, 20);
+    expect(result.obtainedMarks, 4);
+    expect(result.percentage, 20);
+    expect(result.scoreLabel, '4/20');
+  });
 }

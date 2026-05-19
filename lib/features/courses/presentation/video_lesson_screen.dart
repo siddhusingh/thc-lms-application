@@ -26,9 +26,14 @@ import 'course_provider.dart';
 import 'video_verification_session.dart';
 
 class VideoLessonScreen extends StatefulWidget {
-  const VideoLessonScreen({required this.lesson, super.key});
+  const VideoLessonScreen({
+    required this.lesson,
+    this.returnTo = '/courses',
+    super.key,
+  });
 
   final LessonModel lesson;
+  final String returnTo;
 
   @override
   State<VideoLessonScreen> createState() => _VideoLessonScreenState();
@@ -70,6 +75,8 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
 
   bool get _canPlayLesson =>
       _lessonFaceVerificationDisabled || _verificationSession.canPlay;
+
+  String get _backTarget => widget.returnTo;
 
   @override
   void initState() {
@@ -324,7 +331,7 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
       final courseId = _courseId;
       final returnSuffix = courseId == null
           ? ''
-          : '?return_to=${Uri.encodeComponent('/courses/$courseId')}';
+          : '?return_to=${Uri.encodeComponent('/courses/$courseId?return_to=${Uri.encodeComponent(_backTarget)}')}';
       context.go(
         '/assessments/${Uri.encodeComponent(assessmentId)}$returnSuffix',
       );
@@ -459,7 +466,7 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
           onPopInvokedWithResult: (didPop, _) {
             if (didPop) return;
             Navigator.of(dialogContext).pop();
-            if (mounted) context.go('/courses');
+            if (mounted) _goBackTarget();
           },
           child: Dialog(
             insetPadding: const EdgeInsets.symmetric(
@@ -516,7 +523,7 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
           await faceReferences.retry();
           continue;
         }
-        context.go('/courses');
+        _goBackTarget();
         return false;
       }
 
@@ -540,7 +547,7 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
         await faceReferences.prepare(userId, force: true);
         continue;
       }
-      context.go('/courses');
+      _goBackTarget();
       return false;
     }
     return false;
@@ -1001,7 +1008,7 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
         if (context.canPop()) {
           context.pop();
         } else {
-          context.go('/courses');
+          _goBackTarget();
         }
       },
       onMarkComplete: _lesson.id.isEmpty
@@ -1048,7 +1055,11 @@ class _VideoLessonScreenState extends State<VideoLessonScreen>
       return;
     }
 
-    context.go('/courses');
+    _goBackTarget();
+  }
+
+  void _goBackTarget() {
+    context.go(_backTarget);
   }
 }
 

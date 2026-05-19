@@ -122,6 +122,8 @@ class DashboardCourseProgress {
   final String? courseThumbnail;
   final double progressPercentage;
 
+  String get navigationCourseId => id.isNotEmpty ? id : courseId;
+
   factory DashboardCourseProgress.fromJson(Map<String, dynamic> json) {
     return DashboardCourseProgress(
       id: '${json['id'] ?? ''}',
@@ -160,9 +162,7 @@ class DashboardCourseCompletionSeries {
   final String name;
   final List<double> values;
 
-  factory DashboardCourseCompletionSeries.fromJson(
-    Map<String, dynamic> json,
-  ) {
+  factory DashboardCourseCompletionSeries.fromJson(Map<String, dynamic> json) {
     final values = List<double>.filled(7, 0, growable: false);
     for (final item in (json['data'] as List? ?? const [])) {
       if (item is! Map<String, dynamic>) continue;

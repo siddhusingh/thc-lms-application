@@ -144,9 +144,74 @@ class AssessmentAttemptModel {
   }
 }
 
+class AssessmentResultHistoryModel {
+  const AssessmentResultHistoryModel({
+    required this.assessmentId,
+    required this.courseTitle,
+    required this.videoTitle,
+    required this.title,
+    required this.assessmentType,
+    required this.lastCompletedAt,
+    required this.timeTaken,
+    this.totalMarks = 0,
+    this.obtainedMarks = 0,
+    this.percentage = 0,
+  });
+
+  final String assessmentId;
+  final String courseTitle;
+  final String videoTitle;
+  final String title;
+  final String assessmentType;
+  final DateTime? lastCompletedAt;
+  final String timeTaken;
+  final int totalMarks;
+  final int obtainedMarks;
+  final double percentage;
+
+  String get displayTitle => title.isEmpty ? 'Assessment' : title;
+
+  String get displayCourseTitle {
+    return courseTitle.isEmpty ? 'Untitled course' : courseTitle;
+  }
+
+  String get displayAssessmentType {
+    if (assessmentType.isEmpty) return 'Assessment';
+    return '${assessmentType[0].toUpperCase()}${assessmentType.substring(1)}';
+  }
+
+  String get scoreLabel => '$obtainedMarks/$totalMarks';
+
+  factory AssessmentResultHistoryModel.fromJson(Map<String, dynamic> json) {
+    return AssessmentResultHistoryModel(
+      assessmentId: _stringValue(json['assessment_id'] ?? json['id']),
+      courseTitle: _stringValue(json['course_title']),
+      videoTitle: _stringValue(json['video_title']),
+      title: _stringValue(json['title'] ?? json['assessment_title']),
+      assessmentType: _stringValue(json['assessment_type']),
+      lastCompletedAt: _toDateTime(json['last_completed_at']),
+      timeTaken: _stringValue(json['time_taken'], fallback: '0 mins'),
+      totalMarks: AssessmentModel._toInt(json['total_marks']),
+      obtainedMarks: AssessmentModel._toInt(json['obtained_marks']),
+      percentage: AssessmentModel._toDouble(json['percentage']),
+    );
+  }
+}
+
 String? _nullableString(Object? value) {
   final text = value?.toString().trim();
   return text == null || text.isEmpty ? null : text;
+}
+
+String _stringValue(Object? value, {String fallback = ''}) {
+  final text = value?.toString().trim() ?? '';
+  return text.isEmpty ? fallback : text;
+}
+
+DateTime? _toDateTime(Object? value) {
+  final text = value?.toString().trim();
+  if (text == null || text.isEmpty) return null;
+  return DateTime.tryParse(text);
 }
 
 bool _toBool(Object? value) {

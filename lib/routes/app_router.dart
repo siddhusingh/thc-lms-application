@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../features/assessments/presentation/assessment_attempt_screen.dart';
 import '../features/assessments/presentation/assessment_list_screen.dart';
 import '../features/assessments/presentation/assessment_result_screen.dart';
+import '../features/assessments/presentation/assessment_results_screen.dart';
 import '../features/auth/presentation/auth_provider.dart';
 import '../features/auth/presentation/face_verification_screen.dart';
 import '../features/auth/presentation/forgot_password_screen.dart';
@@ -11,6 +12,7 @@ import '../features/auth/presentation/login_screen.dart';
 import '../features/auth/presentation/otp_screen.dart';
 import '../features/auth/presentation/register_screen.dart';
 import '../features/auth/presentation/splash_screen.dart';
+import '../features/calendar/presentation/calendar_screen.dart';
 import '../features/certificates/presentation/certificate_list_screen.dart';
 import '../features/courses/presentation/course_detail_screen.dart';
 import '../features/courses/presentation/course_list_screen.dart';
@@ -18,8 +20,10 @@ import '../features/courses/presentation/video_lesson_screen.dart';
 import '../features/dashboard/presentation/dashboard_screen.dart';
 import '../features/face_images/presentation/face_images_screen.dart';
 import '../features/face_references/presentation/face_reference_preparation_screen.dart';
+import '../features/learning_path/presentation/learning_path_screen.dart';
 import '../features/profile/presentation/personal_details_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
+import '../features/study_time/presentation/study_time_screen.dart';
 import '../models/course_model.dart';
 import 'main_shell.dart';
 
@@ -98,8 +102,24 @@ class AppRouter {
               builder: (context, state) => const CourseListScreen(),
             ),
             GoRoute(
+              path: '/learning-path',
+              builder: (context, state) => const LearningPathScreen(),
+            ),
+            GoRoute(
+              path: '/calendar',
+              builder: (context, state) => const CalendarScreen(),
+            ),
+            GoRoute(
+              path: '/study-time',
+              builder: (context, state) => const StudyTimeScreen(),
+            ),
+            GoRoute(
               path: '/assessments',
               builder: (context, state) => const AssessmentListScreen(),
+            ),
+            GoRoute(
+              path: '/assessment-results',
+              builder: (context, state) => const AssessmentResultsScreen(),
             ),
             GoRoute(
               path: '/certificates',
@@ -123,6 +143,7 @@ class AppRouter {
           path: '/courses/:id',
           builder: (context, state) => CourseDetailScreen(
             courseId: state.pathParameters['id']!,
+            returnTo: _safeReturnTo(state.uri.queryParameters['return_to']),
             showAssessmentCompletedMessage:
                 state.uri.queryParameters['assessment_completed'] == 'true',
           ),
@@ -131,7 +152,12 @@ class AppRouter {
           path: '/lessons',
           builder: (context, state) {
             final lesson = state.extra;
-            if (lesson is LessonModel) return VideoLessonScreen(lesson: lesson);
+            if (lesson is LessonModel) {
+              return VideoLessonScreen(
+                lesson: lesson,
+                returnTo: _safeReturnTo(state.uri.queryParameters['return_to']),
+              );
+            }
             return const Scaffold(
               body: Center(child: Text('Lesson data unavailable.')),
             );
@@ -141,7 +167,12 @@ class AppRouter {
           path: '/lessons/:id',
           builder: (context, state) {
             final lesson = state.extra;
-            if (lesson is LessonModel) return VideoLessonScreen(lesson: lesson);
+            if (lesson is LessonModel) {
+              return VideoLessonScreen(
+                lesson: lesson,
+                returnTo: _safeReturnTo(state.uri.queryParameters['return_to']),
+              );
+            }
             return const Scaffold(
               body: Center(child: Text('Lesson data unavailable.')),
             );
@@ -160,5 +191,14 @@ class AppRouter {
         ),
       ],
     );
+  }
+
+  static String _safeReturnTo(String? value) {
+    final target = value?.trim();
+    if (target == null || target.isEmpty || !target.startsWith('/')) {
+      return '/courses';
+    }
+    if (target.startsWith('//')) return '/courses';
+    return target;
   }
 }

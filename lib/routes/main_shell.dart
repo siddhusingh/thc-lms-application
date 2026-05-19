@@ -14,7 +14,8 @@ class MainShell extends StatelessWidget {
   int _indexForLocation(String location) {
     if (location.startsWith('/courses')) return 1;
     if (location.startsWith('/assessments')) return 2;
-    if (location.startsWith('/certificates')) return 3;
+    if (location.startsWith('/assessment-results')) return 2;
+    if (location.startsWith('/calendar')) return 3;
     if (location.startsWith('/profile')) return 4;
     return 0;
   }
@@ -62,7 +63,7 @@ class MainShell extends StatelessWidget {
               0 => '/dashboard',
               1 => '/courses',
               2 => '/assessments',
-              3 => '/certificates',
+              3 => '/calendar',
               4 => '/profile',
               _ => '/dashboard',
             };
@@ -86,9 +87,9 @@ class MainShell extends StatelessWidget {
               label: 'Tests',
             ),
             NavigationDestination(
-              icon: Icon(Icons.workspace_premium_outlined),
-              selectedIcon: Icon(Icons.workspace_premium_rounded),
-              label: 'Certs',
+              icon: Icon(Icons.calendar_month_outlined),
+              selectedIcon: Icon(Icons.calendar_month_rounded),
+              label: 'Calendar',
             ),
             NavigationDestination(
               icon: Icon(Icons.person_outline_rounded),
@@ -197,6 +198,27 @@ class _AppDrawer extends StatelessWidget {
                     currentLocation: currentLocation,
                   ),
                   _DrawerItem(
+                    icon: Icons.route_outlined,
+                    selectedIcon: Icons.route_rounded,
+                    label: 'Learning Path',
+                    route: '/learning-path',
+                    currentLocation: currentLocation,
+                  ),
+                  _DrawerItem(
+                    icon: Icons.calendar_month_outlined,
+                    selectedIcon: Icons.calendar_month_rounded,
+                    label: 'Calendar',
+                    route: '/calendar',
+                    currentLocation: currentLocation,
+                  ),
+                  _DrawerItem(
+                    icon: Icons.timer_outlined,
+                    selectedIcon: Icons.timer_rounded,
+                    label: 'Study Time',
+                    route: '/study-time',
+                    currentLocation: currentLocation,
+                  ),
+                  _DrawerItem(
                     icon: Icons.quiz_outlined,
                     selectedIcon: Icons.quiz_rounded,
                     label: 'Tests',
@@ -204,10 +226,10 @@ class _AppDrawer extends StatelessWidget {
                     currentLocation: currentLocation,
                   ),
                   _DrawerItem(
-                    icon: Icons.workspace_premium_outlined,
-                    selectedIcon: Icons.workspace_premium_rounded,
-                    label: 'Certificates',
-                    route: '/certificates',
+                    icon: Icons.analytics_outlined,
+                    selectedIcon: Icons.analytics_rounded,
+                    label: 'Results',
+                    route: '/assessment-results',
                     currentLocation: currentLocation,
                   ),
                   _DrawerItem(

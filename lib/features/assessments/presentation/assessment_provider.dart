@@ -10,12 +10,15 @@ class AssessmentProvider extends ChangeNotifier {
   final AssessmentRepository _repository;
 
   final List<AssessmentModel> assessments = [];
+  final List<AssessmentResultHistoryModel> resultHistory = [];
   AssessmentAttemptModel? attempt;
   Map<String, dynamic>? result;
   bool loading = false;
+  bool resultsLoading = false;
   bool hasMore = true;
   int _page = 1;
   String? error;
+  String? resultsError;
 
   Future<void> load({bool refresh = false}) async {
     if (loading) return;
@@ -38,6 +41,27 @@ class AssessmentProvider extends ChangeNotifier {
       error = 'Unable to load assessments.';
     } finally {
       loading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadResults({bool refresh = false}) async {
+    if (resultsLoading) return;
+    if (!refresh && resultHistory.isNotEmpty) return;
+    resultsLoading = true;
+    resultsError = null;
+    notifyListeners();
+    try {
+      final results = await _repository.fetchAssessmentResults();
+      resultHistory
+        ..clear()
+        ..addAll(results);
+    } on ApiException catch (exception) {
+      resultsError = exception.message;
+    } catch (_) {
+      resultsError = 'Unable to load assessment results.';
+    } finally {
+      resultsLoading = false;
       notifyListeners();
     }
   }

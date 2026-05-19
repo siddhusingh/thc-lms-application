@@ -57,6 +57,7 @@ void main() {
     final progress = dashboard.progress.single;
     expect(progress.id, '2');
     expect(progress.courseId, 'THC20260411122508');
+    expect(progress.navigationCourseId, '2');
     expect(progress.courseName, 'Where can I get some?');
     expect(progress.courseThumbnail, 'thumb.jpg');
     expect(progress.progressPercentage, 40);

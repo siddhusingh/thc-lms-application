@@ -15,6 +15,9 @@ class ApiEndpoints {
   static const faceImages = 'student/face-images';
 
   static const dashboard = 'student/dashboard';
+  static const calendar = 'student/calendar';
+  static const studyTime = 'student/study-time';
+  static const learningPath = 'student/learning-path';
   static const courses = 'student/courses';
   static String course(String id) => 'student/course-detail';
   static const coursePlaylist = 'student/course-playlist';

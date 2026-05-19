@@ -13,11 +13,13 @@ class CourseDetailScreen extends StatefulWidget {
   const CourseDetailScreen({
     required this.courseId,
     this.showAssessmentCompletedMessage = false,
+    this.returnTo = '/courses',
     super.key,
   });
 
   final String courseId;
   final bool showAssessmentCompletedMessage;
+  final String returnTo;
 
   @override
   State<CourseDetailScreen> createState() => _CourseDetailScreenState();
@@ -85,7 +87,9 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
     if (!check.hasIncompletePreCourseAssessment) return false;
     final assessmentId = check.preCourseAssessmentId;
     if (assessmentId != null && assessmentId.isNotEmpty) {
-      final returnTo = Uri.encodeComponent('/courses/${widget.courseId}');
+      final returnTo = Uri.encodeComponent(
+        '/courses/${widget.courseId}?return_to=${Uri.encodeComponent(widget.returnTo)}',
+      );
       context.go(
         '/assessments/${Uri.encodeComponent(assessmentId)}'
         '?return_to=$returnTo',
@@ -97,9 +101,10 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
 
   void _openPlayer(LessonModel lesson) {
     final id = lesson.id.trim();
+    final returnTo = Uri.encodeComponent(widget.returnTo);
     final path = id.isEmpty
-        ? '/lessons'
-        : '/lessons/${Uri.encodeComponent(id)}';
+        ? '/lessons?return_to=$returnTo'
+        : '/lessons/${Uri.encodeComponent(id)}?return_to=$returnTo';
     context.go(path, extra: lesson);
   }
 

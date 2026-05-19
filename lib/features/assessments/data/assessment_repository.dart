@@ -24,6 +24,32 @@ class AssessmentRepository {
     );
   }
 
+  Future<List<AssessmentResultHistoryModel>> fetchAssessmentResults() async {
+    final response = await _apiClient.get<Map<String, dynamic>>(
+      ApiEndpoints.assessments,
+    );
+    final data = response.data ?? {};
+    final payload = data['data'];
+    final rawItems = payload is List
+        ? payload
+        : payload is Map<String, dynamic>
+        ? (payload['items'] ?? payload['results'] ?? const [])
+        : (data['items'] ?? data['results'] ?? const []);
+    final items = rawItems is List ? rawItems : const [];
+    return items
+        .whereType<Map<String, dynamic>>()
+        .map(AssessmentResultHistoryModel.fromJson)
+        .toList()
+      ..sort((a, b) {
+        final left = a.lastCompletedAt;
+        final right = b.lastCompletedAt;
+        if (left == null && right == null) return 0;
+        if (left == null) return 1;
+        if (right == null) return -1;
+        return left.compareTo(right);
+      });
+  }
+
   Future<AssessmentAttemptModel> startAssessment(String id) async {
     if (kDebugMode) {
       debugPrint('Assessment start request: assessment_id=$id');
@@ -82,8 +108,7 @@ class AssessmentRepository {
       ApiEndpoints.assessment(assessmentId),
       queryParameters: {
         'assessment_id': assessmentId,
-        if (attemptId != null && attemptId.isNotEmpty)
-          'attempt_id': attemptId,
+        if (attemptId != null && attemptId.isNotEmpty) 'attempt_id': attemptId,
         if (questionId != null && questionId.isNotEmpty)
           'question_id': questionId,
       },

@@ -20,23 +20,22 @@ class CourseCard extends StatelessWidget {
           child: Row(
             children: [
               ClipRRect(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(12),
                 child: SizedBox(
-                  height: 74,
-                  width: 92,
+                  height: 78,
+                  width: 124,
                   child: course.thumbnailUrl == null
-                      ? ColoredBox(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.primary.withValues(alpha: .12),
-                          child: Icon(
-                            Icons.play_lesson_rounded,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
+                      ? Icon(
+                          Icons.play_lesson_rounded,
+                          color: Theme.of(context).colorScheme.primary,
                         )
                       : CachedNetworkImage(
                           imageUrl: course.thumbnailUrl!,
-                          fit: BoxFit.cover,
+                          fit: BoxFit.contain,
+                          errorWidget: (_, _, _) => Icon(
+                            Icons.broken_image_outlined,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
                         ),
                 ),
               ),
