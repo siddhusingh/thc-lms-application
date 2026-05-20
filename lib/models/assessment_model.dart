@@ -3,31 +3,88 @@ class AssessmentModel {
     required this.id,
     required this.title,
     this.courseTitle,
+    this.videoTitle = '',
+    this.assessmentType = '',
+    this.lastCompletedAt,
+    this.timeTaken = '',
     this.durationMinutes = 0,
     this.totalQuestions = 0,
     this.status = 'available',
     this.passPercentage = 0,
+    this.totalMarks = 0,
+    this.obtainedMarks = 0,
+    this.percentage = 0,
   });
 
   final String id;
   final String title;
   final String? courseTitle;
+  final String videoTitle;
+  final String assessmentType;
+  final DateTime? lastCompletedAt;
+  final String timeTaken;
   final int durationMinutes;
   final int totalQuestions;
   final String status;
   final double passPercentage;
+  final int totalMarks;
+  final int obtainedMarks;
+  final double percentage;
+
+  String get displayTitle => title.isEmpty ? 'Assessment' : title;
+
+  String get displayCourseTitle {
+    final text = courseTitle?.trim() ?? '';
+    return text.isEmpty ? 'Untitled course' : text;
+  }
+
+  String get displayAssessmentType {
+    if (assessmentType.isEmpty) {
+      final normalizedTitle = title.toLowerCase();
+      if (normalizedTitle.contains('pre')) return 'Pre';
+      if (normalizedTitle.contains('post')) return 'Post';
+      return 'Assessment';
+    }
+    return '${assessmentType[0].toUpperCase()}${assessmentType.substring(1)}';
+  }
+
+  double get displayPercentage {
+    if (percentage > 0) return percentage;
+    if (totalMarks > 0) return obtainedMarks / totalMarks * 100;
+    return passPercentage;
+  }
+
+  String get scoreLabel {
+    if (totalMarks > 0) return '$obtainedMarks/$totalMarks';
+    if (totalQuestions > 0) return '0/$totalQuestions';
+    return '0/0';
+  }
 
   factory AssessmentModel.fromJson(Map<String, dynamic> json) {
     return AssessmentModel(
-      id: '${json['id'] ?? json['_id'] ?? ''}',
-      title: '${json['title'] ?? json['name'] ?? ''}',
+      id: '${json['id'] ?? json['_id'] ?? json['assessment_id'] ?? ''}',
+      title:
+          '${json['title'] ?? json['name'] ?? json['assessment_title'] ?? ''}',
       courseTitle: json['course_title']?.toString(),
-      durationMinutes: _toInt(json['duration_minutes'] ?? json['time_limit']),
-      totalQuestions: _toInt(json['total_questions'] ?? json['question_count']),
+      videoTitle: _stringValue(json['video_title']),
+      assessmentType: _stringValue(json['assessment_type']),
+      lastCompletedAt: _toDateTime(json['last_completed_at']),
+      timeTaken: _stringValue(json['time_taken']),
+      durationMinutes: _toInt(
+        json['duration_minutes'] ?? json['time_limit'] ?? json['time_taken'],
+      ),
+      totalQuestions: _toInt(
+        json['total_questions'] ??
+            json['question_count'] ??
+            json['total_marks'],
+      ),
       status: '${json['status'] ?? 'available'}',
       passPercentage: _toDouble(
         json['pass_percentage'] ?? json['passing_score'],
       ),
+      totalMarks: _toInt(json['total_marks']),
+      obtainedMarks: _toInt(json['obtained_marks']),
+      percentage: _toDouble(json['percentage']),
     );
   }
 

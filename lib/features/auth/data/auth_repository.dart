@@ -7,6 +7,7 @@ import '../../../core/api/api_client.dart';
 import '../../../core/api/api_exception.dart';
 import '../../../core/constants/api_endpoints.dart';
 import '../../../core/storage/secure_session_store.dart';
+import '../../../models/student_category_model.dart';
 import '../../../models/user_model.dart';
 
 class AuthRepository {
@@ -33,9 +34,16 @@ class AuthRepository {
   Future<UserModel> register(Map<String, dynamic> payload) async {
     final response = await _apiClient.post<Map<String, dynamic>>(
       ApiEndpoints.register,
-      data: payload,
+      data: FormData.fromMap(payload),
     );
     return _persistAuthResponse(response.data ?? {});
+  }
+
+  Future<List<StudentCategoryModel>> fetchStudentCategories() async {
+    final response = await _apiClient.get<Map<String, dynamic>>(
+      ApiEndpoints.studentCategories,
+    );
+    return parseStudentCategories(response.data ?? {});
   }
 
   Future<void> forgotPassword(String email) {

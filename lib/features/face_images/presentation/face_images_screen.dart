@@ -14,7 +14,9 @@ import '../../../models/face_image_state.dart';
 import 'face_image_provider.dart';
 
 class FaceImagesScreen extends StatefulWidget {
-  const FaceImagesScreen({super.key});
+  const FaceImagesScreen({this.setupMode = false, super.key});
+
+  final bool setupMode;
 
   @override
   State<FaceImagesScreen> createState() => _FaceImagesScreenState();
@@ -22,12 +24,15 @@ class FaceImagesScreen extends StatefulWidget {
 
 class _FaceImagesScreenState extends State<FaceImagesScreen> {
   final ImagePicker _picker = ImagePicker();
+  bool _continuing = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback(
-      (_) => context.read<FaceImageProvider>().load(),
+      (_) => context.read<FaceImageProvider>().load(
+        ownerKey: _faceImageOwner(context.read<AuthProvider>()),
+      ),
     );
   }
 
@@ -51,10 +56,10 @@ class _FaceImagesScreenState extends State<FaceImagesScreen> {
         if (userId != null && userId.isNotEmpty) {
           context.read<FaceReferenceProvider>().prepare(userId, force: true);
         }
-        showSuccessToast(
-          context,
-          message: '${slot.label} face image updated.',
-        );
+        showSuccessToast(context, message: '${slot.label} face image updated.');
+        if (widget.setupMode && provider.images?.isComplete == true) {
+          await _continueToDashboard();
+        }
         return;
       }
 
@@ -109,14 +114,20 @@ class _FaceImagesScreenState extends State<FaceImagesScreen> {
     final isComplete = images?.isComplete ?? false;
     final hasMissingImages = images?.hasMissingImages ?? true;
 
-    return RefreshIndicator(
+    if (widget.setupMode && isComplete) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _continueToDashboard();
+      });
+    }
+
+    final content = RefreshIndicator(
       onRefresh: () => provider.load(refresh: true),
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           _SectionHeader(
             title: 'Face verification',
-            onBack: () => context.pop(),
+            onBack: widget.setupMode ? null : () => context.pop(),
           ),
           const SizedBox(height: 16),
           Card(
@@ -178,9 +189,43 @@ class _FaceImagesScreenState extends State<FaceImagesScreen> {
             isUploading: provider.isUploading,
             onPressed: _showImageSourcePicker,
           ),
+          if (widget.setupMode) ...[
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: isComplete ? () => _continueToDashboard() : null,
+              icon: const Icon(Icons.arrow_forward_rounded),
+              label: Text(
+                isComplete
+                    ? 'Continue to dashboard'
+                    : 'Upload all 3 images to continue',
+              ),
+            ),
+          ],
         ],
       ),
     );
+
+    if (!widget.setupMode) return content;
+    return PopScope(
+      canPop: isComplete,
+      child: Scaffold(body: SafeArea(child: content)),
+    );
+  }
+
+  Future<void> _continueToDashboard() async {
+    if (_continuing) return;
+    _continuing = true;
+    final userId = context.read<AuthProvider>().user?.id;
+    if (userId != null && userId.isNotEmpty) {
+      await context.read<FaceReferenceProvider>().prepare(userId, force: true);
+    }
+    if (mounted) context.go('/dashboard');
+  }
+
+  String _faceImageOwner(AuthProvider auth) {
+    final user = auth.user;
+    if (user == null) return '';
+    return user.id.isNotEmpty ? user.id : user.email;
   }
 }
 
@@ -188,16 +233,19 @@ class _SectionHeader extends StatelessWidget {
   const _SectionHeader({required this.title, required this.onBack});
 
   final String title;
-  final VoidCallback onBack;
+  final VoidCallback? onBack;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        IconButton(
-          onPressed: onBack,
-          icon: const Icon(Icons.arrow_back_rounded),
-        ),
+        if (onBack != null)
+          IconButton(
+            onPressed: onBack,
+            icon: const Icon(Icons.arrow_back_rounded),
+          )
+        else
+          const SizedBox(width: 8),
         const SizedBox(width: 4),
         Text(title, style: Theme.of(context).textTheme.headlineSmall),
       ],

@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/widgets/app_toast.dart';
 import '../../auth/presentation/auth_provider.dart';
+import '../../face_images/presentation/face_image_provider.dart';
 import 'profile_provider.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -102,6 +103,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   leading: const Icon(Icons.logout_rounded),
                   title: const Text('Logout'),
                   onTap: () async {
+                    context.read<FaceImageProvider>().clear();
                     await auth.logout();
                     if (context.mounted) context.go('/login');
                   },

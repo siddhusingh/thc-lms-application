@@ -71,6 +71,7 @@ class LearningPathCourse {
   final String action;
 
   String get navigationCourseId => id.isNotEmpty ? id : courseId;
+  bool get isScheduled => status.trim().toLowerCase() == 'scheduled';
 
   factory LearningPathCourse.fromJson(Map<String, dynamic> json) {
     return LearningPathCourse(

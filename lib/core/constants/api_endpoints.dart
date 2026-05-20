@@ -2,7 +2,8 @@ class ApiEndpoints {
   ApiEndpoints._();
 
   static const login = 'student/login';
-  static const register = 'student/register';
+  static const register = 'student/sign-up';
+  static const studentCategories = 'student/categories';
   static const forgotPassword = 'student/forgot-password';
   static const verifyOtp = 'student/verify-otp';
   static const resetPassword = 'student/reset-password';
@@ -15,6 +16,7 @@ class ApiEndpoints {
   static const faceImages = 'student/face-images';
 
   static const dashboard = 'student/dashboard';
+  static const analytics = 'student/analytics';
   static const calendar = 'student/calendar';
   static const studyTime = 'student/study-time';
   static const learningPath = 'student/learning-path';

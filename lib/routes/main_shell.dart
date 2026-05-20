@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../core/theme/app_theme.dart';
 import '../core/widgets/thc_logo.dart';
 import '../features/auth/presentation/auth_provider.dart';
+import '../features/face_images/presentation/face_image_provider.dart';
 
 class MainShell extends StatelessWidget {
   const MainShell({required this.child, super.key});
@@ -219,6 +220,13 @@ class _AppDrawer extends StatelessWidget {
                     currentLocation: currentLocation,
                   ),
                   _DrawerItem(
+                    icon: Icons.analytics_outlined,
+                    selectedIcon: Icons.analytics_rounded,
+                    label: 'Analytics',
+                    route: '/analytics',
+                    currentLocation: currentLocation,
+                  ),
+                  _DrawerItem(
                     icon: Icons.quiz_outlined,
                     selectedIcon: Icons.quiz_rounded,
                     label: 'Tests',
@@ -258,6 +266,7 @@ class _AppDrawer extends StatelessWidget {
                 ),
                 onTap: () async {
                   Navigator.of(context).pop();
+                  context.read<FaceImageProvider>().clear();
                   await context.read<AuthProvider>().logout();
                   if (context.mounted) context.go('/login');
                 },

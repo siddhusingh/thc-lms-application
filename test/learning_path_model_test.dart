@@ -84,6 +84,12 @@ void main() {
     },
   );
 
+  test('learning path course detects scheduled status case-insensitively', () {
+    final course = LearningPathCourse.fromJson({'status': ' Scheduled '});
+
+    expect(course.isScheduled, isTrue);
+  });
+
   test('learning path uses safe defaults for missing and invalid values', () {
     final learningPath = LearningPathModel.fromJson({
       'summary': {

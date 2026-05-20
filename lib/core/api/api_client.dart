@@ -97,9 +97,7 @@ class ApiClient {
         data['message']?.toString() ??
             'Something went wrong. Please try again.',
         statusCode: response?.statusCode,
-        errors: data['errors'] is Map<String, dynamic>
-            ? data['errors'] as Map<String, dynamic>
-            : null,
+        errors: _extractErrors(data),
       );
     }
     if (error.type == DioExceptionType.connectionError ||
@@ -116,6 +114,19 @@ class ApiClient {
 
   bool _isRefreshRequest(RequestOptions options) =>
       options.path.contains(ApiEndpoints.refreshToken);
+
+  Map<String, dynamic>? _extractErrors(Map<String, dynamic> data) {
+    final directErrors = data['errors'];
+    if (directErrors is Map<String, dynamic>) return directErrors;
+
+    final payload = data['data'];
+    if (payload is Map<String, dynamic>) {
+      final nestedErrors = payload['errors'];
+      if (nestedErrors is Map<String, dynamic>) return nestedErrors;
+    }
+
+    return null;
+  }
 
   Future<bool> _refreshToken() {
     _refreshFuture ??= _doRefresh().whenComplete(() => _refreshFuture = null);

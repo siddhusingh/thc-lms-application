@@ -13,6 +13,8 @@ class FaceImageProvider extends ChangeNotifier {
   final Set<FaceImageSlot> _uploadingSlots = {};
   Future<void>? _loadFuture;
   int _imageVersion = 0;
+  int _loadGeneration = 0;
+  String? _ownerKey;
 
   FaceImageState? images;
   bool loading = false;
@@ -37,29 +39,42 @@ class FaceImageProvider extends ChangeNotifier {
         .toString();
   }
 
-  Future<void> load({bool refresh = false}) {
+  Future<void> load({bool refresh = false, String? ownerKey}) {
+    if (ownerKey != null && ownerKey != _ownerKey) {
+      _clearState(notify: false);
+      _ownerKey = ownerKey;
+      refresh = true;
+    }
+    if (!refresh && images != null) return Future.value();
     final inFlight = _loadFuture;
     if (inFlight != null) return inFlight;
 
-    final future = _load(refresh: refresh);
+    final generation = _loadGeneration;
+    final future = _load(refresh: refresh, generation: generation);
     _loadFuture = future.whenComplete(() => _loadFuture = null);
     return _loadFuture!;
   }
 
-  Future<void> _load({required bool refresh}) async {
+  Future<void> _load({required bool refresh, required int generation}) async {
     loading = refresh || images == null;
     error = null;
     notifyListeners();
     try {
-      images = await _repository.fetchFaceImages();
+      final nextImages = await _repository.fetchFaceImages();
+      if (generation != _loadGeneration) return;
+      images = nextImages;
       _refreshImageVersion();
     } on ApiException catch (exception) {
+      if (generation != _loadGeneration) return;
       error = exception.message;
     } catch (_) {
+      if (generation != _loadGeneration) return;
       error = 'Unable to load face images.';
     } finally {
-      loading = false;
-      notifyListeners();
+      if (generation == _loadGeneration) {
+        loading = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -86,5 +101,20 @@ class FaceImageProvider extends ChangeNotifier {
 
   void _refreshImageVersion() {
     _imageVersion = DateTime.now().microsecondsSinceEpoch;
+  }
+
+  void clear() {
+    _ownerKey = null;
+    _clearState();
+  }
+
+  void _clearState({bool notify = true}) {
+    _loadGeneration++;
+    images = null;
+    error = null;
+    _uploadingSlots.clear();
+    _loadFuture = null;
+    _imageVersion = 0;
+    if (notify) notifyListeners();
   }
 }

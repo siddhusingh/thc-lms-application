@@ -22,6 +22,7 @@ class AssessmentProvider extends ChangeNotifier {
 
   Future<void> load({bool refresh = false}) async {
     if (loading) return;
+    if (!refresh && assessments.isNotEmpty) return;
     if (refresh) {
       _page = 1;
       hasMore = true;
@@ -32,7 +33,11 @@ class AssessmentProvider extends ChangeNotifier {
     try {
       final response = await _repository.fetchAssessments(page: _page);
       if (_page == 1) assessments.clear();
-      assessments.addAll(response.items);
+      for (final item in response.items) {
+        if (!_hasAssessment(item)) {
+          assessments.add(item);
+        }
+      }
       hasMore = response.hasMore;
       _page = response.currentPage + 1;
     } on ApiException catch (exception) {
@@ -43,6 +48,17 @@ class AssessmentProvider extends ChangeNotifier {
       loading = false;
       notifyListeners();
     }
+  }
+
+  bool _hasAssessment(AssessmentModel item) {
+    return assessments.any((loaded) {
+      if (item.id.isNotEmpty && loaded.id == item.id) return true;
+      return loaded.title == item.title &&
+          loaded.courseTitle == item.courseTitle &&
+          loaded.videoTitle == item.videoTitle &&
+          loaded.assessmentType == item.assessmentType &&
+          loaded.lastCompletedAt == item.lastCompletedAt;
+    });
   }
 
   Future<void> loadResults({bool refresh = false}) async {

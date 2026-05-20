@@ -9,6 +9,8 @@ import 'core/api/api_client.dart';
 import 'core/constants/app_config.dart';
 import 'core/storage/secure_session_store.dart';
 import 'core/theme/app_theme.dart';
+import 'features/analytics/data/analytics_repository.dart';
+import 'features/analytics/presentation/analytics_provider.dart';
 import 'features/assessments/data/assessment_repository.dart';
 import 'features/assessments/presentation/assessment_provider.dart';
 import 'features/auth/data/auth_repository.dart';
@@ -58,6 +60,7 @@ Future<void> main() async {
         Provider.value(value: authRepository),
         ChangeNotifierProvider.value(value: authProvider),
         Provider(create: (_) => DashboardRepository(apiClient)),
+        Provider(create: (_) => AnalyticsRepository(apiClient)),
         Provider(create: (_) => CalendarRepository(apiClient)),
         Provider(create: (_) => StudyTimeRepository(apiClient)),
         Provider(create: (_) => LearningPathRepository(apiClient)),
@@ -81,6 +84,10 @@ Future<void> main() async {
         ChangeNotifierProvider(
           create: (context) =>
               DashboardProvider(context.read<DashboardRepository>()),
+        ),
+        ChangeNotifierProvider(
+          create: (context) =>
+              AnalyticsProvider(context.read<AnalyticsRepository>()),
         ),
         ChangeNotifierProvider(
           create: (context) =>
@@ -138,7 +145,10 @@ class _ThcLmsAppState extends State<ThcLmsApp> {
   @override
   void initState() {
     super.initState();
-    _router = AppRouter.create(context.read<AuthProvider>());
+    _router = AppRouter.create(
+      context.read<AuthProvider>(),
+      context.read<FaceImageProvider>(),
+    );
   }
 
   @override

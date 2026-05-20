@@ -2,6 +2,46 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:thc_lms_mobile/models/assessment_model.dart';
 
 void main() {
+  test('assessment list payload parses rich result-style values', () {
+    final assessment = AssessmentModel.fromJson({
+      'assessment_id': '4',
+      'course_title': 'Where can I get some?',
+      'video_title': 'Contrary to popular belief, Lorem Ipsum',
+      'assessment_title': 'Pre Video Assess',
+      'assessment_type': 'pre',
+      'last_completed_at': '2026-05-17 23:23:32',
+      'time_taken': '0 mins',
+      'total_marks': '20',
+      'obtained_marks': '4',
+      'percentage': '20.00',
+    });
+
+    expect(assessment.id, '4');
+    expect(assessment.displayTitle, 'Pre Video Assess');
+    expect(assessment.displayCourseTitle, 'Where can I get some?');
+    expect(assessment.videoTitle, 'Contrary to popular belief, Lorem Ipsum');
+    expect(assessment.displayAssessmentType, 'Pre');
+    expect(assessment.lastCompletedAt, DateTime(2026, 5, 17, 23, 23, 32));
+    expect(assessment.timeTaken, '0 mins');
+    expect(assessment.totalQuestions, 20);
+    expect(assessment.totalMarks, 20);
+    expect(assessment.obtainedMarks, 4);
+    expect(assessment.displayPercentage, 20);
+    expect(assessment.scoreLabel, '4/20');
+  });
+
+  test('assessment list display values fall back from title and marks', () {
+    final assessment = AssessmentModel.fromJson({
+      'id': '7',
+      'title': 'Video Post Assess',
+      'total_marks': 20,
+      'obtained_marks': 6,
+    });
+
+    expect(assessment.displayAssessmentType, 'Post');
+    expect(assessment.displayPercentage, 30);
+  });
+
   test('question payload parses single-question assessment responses', () {
     final attempt = AssessmentAttemptModel.fromJson({
       'current_number': 1,

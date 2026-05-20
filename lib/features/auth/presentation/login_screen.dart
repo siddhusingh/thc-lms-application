@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/widgets/app_toast.dart';
+import '../../face_images/presentation/face_image_provider.dart';
 import 'auth_provider.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -29,6 +30,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     final auth = context.read<AuthProvider>();
+    final faceImages = context.read<FaceImageProvider>()..clear();
     final ok = await auth.login(
       _email.text.trim(),
       _password.text,
@@ -40,11 +42,19 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
     showSuccessToast(context, message: 'Login successful.');
-    if (auth.user?.faceVerificationRequired == true) {
-      context.go('/face/verify');
-    } else {
+    await faceImages.load(refresh: true, ownerKey: _faceImageOwner(auth));
+    if (!mounted) return;
+    if (faceImages.images?.isComplete == true) {
       context.go('/face/preparing');
+    } else {
+      context.go('/face-images/setup');
     }
+  }
+
+  String _faceImageOwner(AuthProvider auth) {
+    final user = auth.user;
+    if (user == null) return '';
+    return user.id.isNotEmpty ? user.id : user.email;
   }
 
   @override
@@ -122,15 +132,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ],
                 ),
-                if (auth.error != null) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    auth.error!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                  ),
-                ],
                 const SizedBox(height: 18),
                 ElevatedButton(
                   onPressed: auth.loading ? null : _submit,

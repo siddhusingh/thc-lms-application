@@ -5,10 +5,13 @@ import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_error_view.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/loading_shimmer.dart';
 import '../../../models/learning_path_model.dart';
 import 'learning_path_provider.dart';
+
+const _upcomingCourseColor = Color(0xFFF45D64);
 
 class LearningPathScreen extends StatefulWidget {
   const LearningPathScreen({super.key});
@@ -273,10 +276,13 @@ class _LearningPathCourseCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final courseId = course.navigationCourseId;
-    final canOpen = courseId.isNotEmpty;
+    final isUpcoming = course.isScheduled;
+    final canOpen = courseId.isNotEmpty && !isUpcoming;
     return Card(
       child: InkWell(
-        onTap: canOpen ? () => _openCourseVideo(context, courseId) : null,
+        onTap: isUpcoming || canOpen
+            ? () => _handleCourseTap(context, courseId, isUpcoming)
+            : null,
         borderRadius: BorderRadius.circular(8),
         child: Padding(
           padding: const EdgeInsets.all(12),
@@ -311,15 +317,25 @@ class _LearningPathCourseCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 10),
                   ElevatedButton.icon(
-                    onPressed: canOpen
-                        ? () => _openCourseVideo(context, courseId)
+                    onPressed: isUpcoming || canOpen
+                        ? () => _handleCourseTap(context, courseId, isUpcoming)
                         : null,
-                    icon: const Icon(
-                      Icons.play_circle_outline_rounded,
+                    icon: Icon(
+                      isUpcoming
+                          ? Icons.lock_outline_rounded
+                          : Icons.play_circle_outline_rounded,
                       size: 18,
                     ),
-                    label: Text(_actionLabel(course)),
+                    label: Text(
+                      isUpcoming ? 'Up Coming' : _actionLabel(course),
+                    ),
                     style: ElevatedButton.styleFrom(
+                      backgroundColor: isUpcoming ? _upcomingCourseColor : null,
+                      foregroundColor: isUpcoming ? Colors.white : null,
+                      disabledBackgroundColor: AppTheme.mutedText.withValues(
+                        alpha: 0.16,
+                      ),
+                      disabledForegroundColor: AppTheme.mutedText,
                       minimumSize: const Size(0, 34),
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       visualDensity: VisualDensity.compact,
@@ -337,6 +353,21 @@ class _LearningPathCourseCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _handleCourseTap(
+    BuildContext context,
+    String courseId,
+    bool isUpcoming,
+  ) {
+    if (isUpcoming) {
+      showInfoToast(
+        context,
+        message: 'This course is scheduled and will be available soon.',
+      );
+      return;
+    }
+    _openCourseVideo(context, courseId);
   }
 
   void _openCourseVideo(BuildContext context, String courseId) {
@@ -423,6 +454,7 @@ class _CourseText extends StatelessWidget {
             if (course.status.isNotEmpty)
               _StatusBadge(
                 label: course.isCompleted ? 'Completed' : course.status,
+                isUpcoming: course.isScheduled,
               ),
           ],
         ),
@@ -459,23 +491,25 @@ class _CourseMeta extends StatelessWidget {
 }
 
 class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.label});
+  const _StatusBadge({required this.label, required this.isUpcoming});
 
   final String label;
+  final bool isUpcoming;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final color = isUpcoming ? _upcomingCourseColor : colorScheme.secondary;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: colorScheme.secondary.withValues(alpha: 0.08),
+        color: color.withValues(alpha: isUpcoming ? 0.14 : 0.08),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: colorScheme.secondary,
+          color: color,
           fontWeight: FontWeight.w800,
         ),
       ),
