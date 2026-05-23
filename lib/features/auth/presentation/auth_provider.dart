@@ -79,8 +79,18 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> forgotPassword(String email) async {
-    return _run(() => _repository.forgotPassword(email));
+  Future<bool> forgotPassword({
+    required String email,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    return _run(
+      () => _repository.forgotPassword(
+        email: email,
+        newPassword: newPassword,
+        confirmPassword: confirmPassword,
+      ),
+    );
   }
 
   Future<bool> verifyOtp(String email, String otp) async {

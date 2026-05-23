@@ -46,10 +46,18 @@ class AuthRepository {
     return parseStudentCategories(response.data ?? {});
   }
 
-  Future<void> forgotPassword(String email) {
+  Future<void> forgotPassword({
+    required String email,
+    required String newPassword,
+    required String confirmPassword,
+  }) {
     return _apiClient.post<void>(
       ApiEndpoints.forgotPassword,
-      data: {'email': email},
+      data: {
+        'email': email,
+        'new_password': newPassword,
+        'confirm_password': confirmPassword,
+      },
     );
   }
 
