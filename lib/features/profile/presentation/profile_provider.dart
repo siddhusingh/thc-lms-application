@@ -33,6 +33,7 @@ class ProfileProvider extends ChangeNotifier {
   Future<bool> changePassword(
     String currentPassword,
     String newPassword,
+    String confirmPassword,
   ) async {
     loading = true;
     error = null;
@@ -41,6 +42,7 @@ class ProfileProvider extends ChangeNotifier {
       await _repository.changePassword(
         currentPassword: currentPassword,
         newPassword: newPassword,
+        confirmPassword: confirmPassword,
       );
       return true;
     } on ApiException catch (exception) {

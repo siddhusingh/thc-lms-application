@@ -25,10 +25,15 @@ class ProfileRepository {
   Future<void> changePassword({
     required String currentPassword,
     required String newPassword,
+    required String confirmPassword,
   }) {
     return _apiClient.post<void>(
-      ApiEndpoints.changePassword,
-      data: {'current_password': currentPassword, 'password': newPassword},
+      ApiEndpoints.passwordRequest,
+      data: {
+        'current_password': currentPassword,
+        'new_password': newPassword,
+        'confirm_password': confirmPassword,
+      },
     );
   }
 

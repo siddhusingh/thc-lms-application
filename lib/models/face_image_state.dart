@@ -33,7 +33,7 @@ class FaceImageState {
       left: left,
       right: right,
       isComplete: json.containsKey('is_complete')
-          ? json['is_complete'] == true
+          ? _toBool(json['is_complete'])
           : front != null && left != null && right != null,
     );
   }
@@ -47,7 +47,24 @@ class FaceImageState {
   };
 
   static String? _normalizedUrl(Object? value) {
+    if (value is Map<String, dynamic>) {
+      return _normalizedUrl(
+        value['url'] ??
+            value['image_url'] ??
+            value['file_url'] ??
+            value['path'] ??
+            value['image'] ??
+            value['file'],
+      );
+    }
     final url = value?.toString().trim();
     return url == null || url.isEmpty ? null : url;
+  }
+
+  static bool _toBool(Object? value) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    final normalized = value?.toString().trim().toLowerCase();
+    return normalized == 'true' || normalized == '1' || normalized == 'yes';
   }
 }

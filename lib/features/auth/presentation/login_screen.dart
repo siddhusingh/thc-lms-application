@@ -117,9 +117,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   onFieldSubmitted: (_) => auth.loading ? null : _submit(),
-                  validator: (value) => value == null || value.length < 6
-                      ? 'Enter password'
-                      : null,
+                  validator: (value) =>
+                      value == null || value.isEmpty ? 'Enter password' : null,
                 ),
                 const SizedBox(height: 14),
                 Row(

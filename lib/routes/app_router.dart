@@ -24,6 +24,7 @@ import '../features/face_images/presentation/face_images_screen.dart';
 import '../features/face_references/presentation/face_reference_preparation_screen.dart';
 import '../features/learning_path/presentation/learning_path_screen.dart';
 import '../features/profile/presentation/personal_details_screen.dart';
+import '../features/profile/presentation/change_password_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/study_time/presentation/study_time_screen.dart';
 import '../models/course_model.dart';
@@ -152,6 +153,10 @@ class AppRouter {
             GoRoute(
               path: '/profile/personal-details',
               builder: (context, state) => const PersonalDetailsScreen(),
+            ),
+            GoRoute(
+              path: '/profile/change-password',
+              builder: (context, state) => const ChangePasswordScreen(),
             ),
             GoRoute(
               path: '/profile/face-images',

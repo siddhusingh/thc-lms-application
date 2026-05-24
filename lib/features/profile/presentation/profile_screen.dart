@@ -93,10 +93,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   leading: const Icon(Icons.lock_outline_rounded),
                   title: const Text('Change password'),
                   trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => showDialog<void>(
-                    context: context,
-                    builder: (_) => const _ChangePasswordDialog(),
-                  ),
+                  onTap: () => context.push('/profile/change-password'),
                 ),
                 const Divider(height: 1),
                 ListTile(
@@ -294,83 +291,6 @@ class _ProfileAvatar extends StatelessWidget {
               ),
             ),
           ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ChangePasswordDialog extends StatefulWidget {
-  const _ChangePasswordDialog();
-
-  @override
-  State<_ChangePasswordDialog> createState() => _ChangePasswordDialogState();
-}
-
-class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
-  final _current = TextEditingController();
-  final _next = TextEditingController();
-
-  @override
-  void dispose() {
-    _current.dispose();
-    _next.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = context.watch<ProfileProvider>();
-    return AlertDialog(
-      title: const Text('Change password'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: _current,
-            obscureText: true,
-            decoration: const InputDecoration(labelText: 'Current password'),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _next,
-            obscureText: true,
-            decoration: const InputDecoration(labelText: 'New password'),
-          ),
-          if (provider.error != null) ...[
-            const SizedBox(height: 10),
-            Text(
-              provider.error!,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
-          ],
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: provider.loading
-              ? null
-              : () async {
-                  final ok = await provider.changePassword(
-                    _current.text,
-                    _next.text,
-                  );
-                  if (!context.mounted) return;
-                  if (!ok) {
-                    showErrorToast(
-                      context,
-                      message: provider.error ?? 'Unable to change password.',
-                    );
-                    return;
-                  }
-                  showSuccessToast(context, message: 'Password updated.');
-                  Navigator.pop(context);
-                },
-          child: const Text('Save'),
         ),
       ],
     );

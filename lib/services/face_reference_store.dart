@@ -1,4 +1,5 @@
 import 'package:face_verification/face_verification.dart' as offline_face;
+import 'package:flutter/foundation.dart';
 
 import '../models/face_image_state.dart';
 
@@ -15,26 +16,35 @@ class FaceReferenceStore {
     _initialized = true;
   }
 
-  Future<void> replaceReferences({
+  Future<int> replaceReferences({
     required String userId,
     required Map<FaceImageSlot, String> imagePaths,
   }) async {
     await initialize();
     await _verification.deleteUserFaces(userId);
+    var registeredCount = 0;
     for (final entry in imagePaths.entries) {
-      await _verification.registerFromImagePath(
-        id: userId,
-        imagePath: entry.value,
-        imageId: entry.key.apiValue,
-        replace: true,
-      );
+      try {
+        await _verification.registerFromImagePath(
+          id: userId,
+          imagePath: entry.value,
+          imageId: entry.key.apiValue,
+          replace: true,
+        );
+        registeredCount++;
+      } catch (error, stackTrace) {
+        debugPrint(
+          'Unable to register ${entry.key.apiValue} face reference: $error',
+        );
+        debugPrintStack(stackTrace: stackTrace);
+      }
     }
+    return registeredCount;
   }
 
   Future<bool> hasReadyReferences(String userId) async {
     await initialize();
-    return await _verification.getFaceCountForUser(userId) >=
-        FaceImageSlot.values.length;
+    return await _verification.getFaceCountForUser(userId) > 0;
   }
 
   Future<bool> verify({

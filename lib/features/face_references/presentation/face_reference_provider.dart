@@ -54,6 +54,8 @@ class FaceReferenceProvider extends ChangeNotifier {
       status = const FaceReferenceStatus.ready();
     } on MissingFaceReferencesException {
       status = const FaceReferenceStatus.missing();
+    } on FaceReferencePreparationException catch (exception) {
+      status = FaceReferenceStatus.failed(exception.message);
     } catch (_) {
       status = const FaceReferenceStatus.failed(
         'Unable to prepare face verification. Check your connection and retry.',
