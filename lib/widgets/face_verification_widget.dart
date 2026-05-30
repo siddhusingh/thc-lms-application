@@ -125,36 +125,21 @@ class _FaceVerificationWidgetState extends State<FaceVerificationWidget> {
     CameraController? cameraController, {
     required bool isLandscape,
   }) {
-    final previewAspectRatio =
-        cameraController?.value.isInitialized == true
-        ? isLandscape
-              ? cameraController!.value.aspectRatio
-              : 1 / cameraController!.value.aspectRatio
-        : isLandscape
-        ? 4 / 3
-        : 3 / 4;
-
     return AspectRatio(
       aspectRatio: isLandscape ? 4 / 3 : 6 / 5,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
+          color: Colors.black,
           borderRadius: BorderRadius.circular(12),
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
           child: cameraController?.value.isInitialized == true
-              ? FittedBox(
-                  fit: BoxFit.cover,
-                  child: SizedBox(
-                    width: previewAspectRatio,
-                    height: 1,
-                    child: CameraPreview(cameraController!),
-                  ),
+              ? _CameraPreviewBox(
+                  controller: cameraController!,
+                  isLandscape: isLandscape,
                 )
-              : const Center(
-                  child: Icon(Icons.face_retouching_natural_rounded, size: 72),
-                ),
+              : _CameraPlaceholder(initializing: widget.controller.initializing),
         ),
       ),
     );
@@ -194,6 +179,94 @@ class _FaceVerificationWidgetState extends State<FaceVerificationWidget> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _CameraPreviewBox extends StatelessWidget {
+  const _CameraPreviewBox({
+    required this.controller,
+    required this.isLandscape,
+  });
+
+  final CameraController controller;
+  final bool isLandscape;
+
+  @override
+  Widget build(BuildContext context) {
+    final cameraAspectRatio = controller.value.aspectRatio;
+    final previewAspectRatio = isLandscape
+        ? cameraAspectRatio
+        : 1 / cameraAspectRatio;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final boxAspectRatio = constraints.maxWidth / constraints.maxHeight;
+        var scale = previewAspectRatio / boxAspectRatio;
+        if (scale < 1) scale = 1 / scale;
+
+        return ClipRect(
+          child: Transform.scale(
+            scale: scale,
+            child: Center(
+              child: AspectRatio(
+                aspectRatio: previewAspectRatio,
+                child: CameraPreview(controller),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _CameraPlaceholder extends StatelessWidget {
+  const _CameraPlaceholder({required this.initializing});
+
+  final bool initializing;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return ColoredBox(
+      color: colorScheme.surfaceContainerHighest,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (initializing) ...[
+              const SizedBox.square(
+                dimension: 26,
+                child: CircularProgressIndicator(strokeWidth: 2.4),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Starting front camera...',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ] else ...[
+              Icon(
+                Icons.face_retouching_natural_rounded,
+                size: 64,
+                color: colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Camera preview unavailable',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

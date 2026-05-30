@@ -28,7 +28,7 @@ class ProfileRepository {
     required String confirmPassword,
   }) {
     return _apiClient.post<void>(
-      ApiEndpoints.passwordRequest,
+      ApiEndpoints.changePassword,
       data: {
         'current_password': currentPassword,
         'new_password': newPassword,

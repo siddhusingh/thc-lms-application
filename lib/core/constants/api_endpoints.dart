@@ -4,8 +4,6 @@ class ApiEndpoints {
   static const login = 'student/login';
   static const register = 'student/sign-up';
   static const studentCategories = 'student/categories';
-  static const forgotPassword = 'student/password-request';
-  static const passwordRequest = 'student/password-request';
   static const verifyOtp = 'student/verify-otp';
   static const resetPassword = 'student/reset-password';
   static const refreshToken = 'student/refresh';

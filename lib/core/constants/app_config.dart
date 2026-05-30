@@ -3,7 +3,7 @@ class AppConfig {
 
   static const apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://srmcare.in/api/',
+    defaultValue: 'https://thc-lms.srmcare.in/api/',
   );
   static const disableLessonFaceVerification = bool.fromEnvironment(
     'DISABLE_LESSON_FACE_VERIFICATION',

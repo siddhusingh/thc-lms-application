@@ -52,7 +52,7 @@ class AuthRepository {
     required String confirmPassword,
   }) {
     return _apiClient.post<void>(
-      ApiEndpoints.forgotPassword,
+      ApiEndpoints.resetPassword,
       data: {
         'email': email,
         'new_password': newPassword,

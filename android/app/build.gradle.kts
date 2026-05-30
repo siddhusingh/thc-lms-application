@@ -1,7 +1,10 @@
-import com.android.build.gradle.internal.api.BaseVariantOutputImpl
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
+import java.util.Properties
+import java.io.FileInputStream
+
 
 plugins {
     id("com.android.application")
@@ -10,10 +13,16 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+}
+
 val apkBuildTimestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
 
 android {
-    namespace = "com.thc.lms.thc_lms_mobile"
+    namespace = "com.trivenihealthcare.learning"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -28,26 +37,25 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.thc.lms.thc_lms_mobile"
+        applicationId = "com.trivenihealthcare.learning"
         minSdk = 29
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
-    buildTypes {
-        release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+    signingConfigs {
+        create("release") {
+            keyAlias = keystoreProperties["keyAlias"] as String
+            keyPassword = keystoreProperties["keyPassword"] as String
+            storeFile = keystoreProperties["storeFile"]?.let { file(it) }
+            storePassword = keystoreProperties["storePassword"] as String
         }
     }
 
-    applicationVariants.all {
-        val variantName = name
-        outputs.all {
-            val output = this as BaseVariantOutputImpl
-            output.outputFileName = "THC-Learning-$variantName-$apkBuildTimestamp.apk"
+    buildTypes {
+        release {
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }

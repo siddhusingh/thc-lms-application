@@ -20,7 +20,7 @@ class MetricCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -30,12 +30,12 @@ class MetricCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodySmall,
             ),
-            const SizedBox(height: 8),
+            const Spacer(),
             Row(
               children: [
                 Container(
-                  height: 38,
-                  width: 38,
+                  height: 36,
+                  width: 36,
                   decoration: BoxDecoration(
                     color: color.withValues(alpha: .12),
                     borderRadius: BorderRadius.circular(8),

@@ -40,13 +40,7 @@ class FaceVerificationController extends ChangeNotifier {
         );
       }
 
-      final controller = CameraController(
-        cameras.first,
-        ResolutionPreset.medium,
-        enableAudio: false,
-        imageFormatGroup: ImageFormatGroup.jpeg,
-      );
-      await controller.initialize();
+      final controller = await _createCameraController(cameras.first);
       await cameraController?.dispose();
       cameraController = controller;
       return _setResult(
@@ -60,6 +54,34 @@ class FaceVerificationController extends ChangeNotifier {
       initializing = false;
       notifyListeners();
     }
+  }
+
+  Future<CameraController> _createCameraController(
+    CameraDescription camera,
+  ) async {
+    const presets = [
+      ResolutionPreset.low,
+      ResolutionPreset.medium,
+      ResolutionPreset.high,
+    ];
+
+    Object? lastError;
+    for (final preset in presets) {
+      final controller = CameraController(
+        camera,
+        preset,
+        enableAudio: false,
+      );
+      try {
+        await controller.initialize();
+        return controller;
+      } catch (error) {
+        lastError = error;
+        await controller.dispose();
+      }
+    }
+
+    throw lastError ?? StateError('Unable to initialize camera.');
   }
 
   Future<FaceVerificationResult> verify({required String context}) async {

@@ -1,4 +1,4 @@
-package com.thc.lms.thc_lms_mobile
+package com.trivenihealthcare.learning
 
 import io.flutter.embedding.android.FlutterActivity
 

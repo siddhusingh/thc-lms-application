@@ -70,14 +70,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 16),
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            childAspectRatio: 1.8,
-            children: [
+          _MetricGrid(
+            cards: [
               MetricCard(
                 title: 'Courses available',
                 value: '${dashboard?.enrolledCourses ?? 0}',
@@ -186,6 +180,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
       default:
         return 'Min.';
     }
+  }
+}
+
+class _MetricGrid extends StatelessWidget {
+  const _MetricGrid({required this.cards});
+
+  final List<Widget> cards;
+
+  @override
+  Widget build(BuildContext context) {
+    final textScale = MediaQuery.textScalerOf(context).scale(1).clamp(
+      1.0,
+      1.35,
+    ).toDouble();
+    final cardHeight = 112 + ((textScale - 1) * 44);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisCount = constraints.maxWidth < 330 ? 1 : 2;
+
+        return GridView.builder(
+          itemCount: cards.length,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            mainAxisExtent: cardHeight,
+          ),
+          itemBuilder: (context, index) => cards[index],
+        );
+      },
+    );
   }
 }
 
